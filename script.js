@@ -889,7 +889,6 @@
 
   let particles = [];
   let floaters = [];
-  let banners = [];
   let shootingStars = [];
 
   let bodies = [];       // 붕괴 시 물리 바디
@@ -972,7 +971,6 @@
     combo = 0;
     particles = [];
     floaters = [];
-    banners = [];
     spawnTimer = 0;
     spawnMover();
   }
@@ -1071,16 +1069,7 @@
     }
 
     Sound.setStage(stageOf(floor));
-    if (floor === 51) {
-      banners.push({ text: '🌅 노을 구간!', sub: '조금 더 빨라져요', life: 2.6, max: 2.6 });
-      Sound.fanfare();
-    } else if (floor === 121) {
-      banners.push({ text: '🚀 우주 도착!', sub: '별까지 가 보자!', life: 2.6, max: 2.6 });
-      Sound.fanfare();
-    } else if (floor % 50 === 0) {
-      banners.push({ text: `🎉 ${floor}층 돌파!`, sub: '', life: 2.2, max: 2.2 });
-      Sound.fanfare();
-    }
+    if (floor === 51 || floor === 121 || floor % 50 === 0) Sound.fanfare();
 
     if (danger() >= 1) {
       startCollapse(Math.sign(lean) || Math.sign(dx) || 1, false);
@@ -1223,9 +1212,6 @@
       f.y += f.vy * dt;
     }
     floaters = floaters.filter((f) => f.life > 0);
-
-    for (const b of banners) b.life -= dt;
-    banners = banners.filter((b) => b.life > 0);
 
     if (altSpace > 0.5 && Math.random() < dt * 0.3) {
       shootingStars.push({ x: rand(0, W), y: rand(0, H * 0.5), vx: -rand(300, 600), vy: rand(120, 260), life: 0.9, max: 0.9 });
@@ -1828,20 +1814,6 @@
       ctx.globalAlpha = 0.65 + 0.35 * Math.sin(time * 4);
       drawText('화면을 톡! 눌러서 떨어뜨려요', W / 2, y, Math.round(clamp(W * 0.05, 16, 24)), '#FFFFFF', { stroke: 'rgba(20,60,120,0.6)' });
       ctx.globalAlpha = 1;
-    }
-
-    for (const b of banners) {
-      const p = 1 - b.life / b.max;
-      const a = Math.min(1, p * 6, b.life * 2);
-      const s = 1 + 0.25 * Math.max(0, 1 - p * 8);
-      ctx.save();
-      ctx.globalAlpha = a;
-      ctx.translate(W / 2, H * 0.3);
-      ctx.scale(s, s);
-      const size = Math.round(clamp(W * 0.08, 24, 40));
-      drawText(b.text, 0, 0, size, '#FFFFFF', { stroke: 'rgba(80,20,90,0.6)', weight: 900 });
-      if (b.sub) drawText(b.sub, 0, size * 1.1, Math.round(size * 0.5), '#FFF3A0', { stroke: 'rgba(80,20,90,0.5)' });
-      ctx.restore();
     }
   }
 
