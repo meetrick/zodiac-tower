@@ -1,2 +1,26 @@
-# zodiac-tower
-A casual one-button stacking game where 12 Zodiac animals build a tower to space.
+# 🐭 Zodiac Tower — 우주 콩콩 동물탑 🚀
+
+**▶ 지금 플레이하기: [https://meetrick.github.io/zodiac-tower/](https://meetrick.github.io/zodiac-tower/)**
+
+12간지 동물(🐭🐮🐯🐰🐲🐍🐴🐑🐵🐔🐶🐷)을 차곡차곡 쌓아 들판에서 노을을 지나 우주의 별까지 올라가는 **원버튼 동물 스태킹 게임**입니다.
+아이들이 스마트폰 세로 화면에서 손가락 하나로 즐길 수 있도록 만들었어요.
+
+## 놀이 방법
+
+- 좌우로 움직이는 동물 블록을 보고 **화면을 톡!** 누르면 떨어집니다.
+- 아래 블록 한가운데에 맞추면 **Perfect!** 와 함께 흔들리던 탑이 안정돼요.
+- 삐뚤게 쌓을수록 탑이 기우뚱거리고, 너무 기울면 와르르 무너집니다.
+- 1~50층은 들판, 51~120층은 노을, 121층부터는 우주! 높이 올라갈수록 빨라져요.
+
+## 특징
+
+- 외부 이미지·오디오 없이 HTML5 Canvas, Vanilla JS, CSS, Web Audio API만 사용
+- 효과음과 배경음악 모두 코드로 합성
+- 스마트폰에서 '홈 화면에 추가'하면 앱처럼 전체 화면으로 실행 (PWA manifest)
+
+## 로컬 실행
+
+```bash
+python3 -m http.server 8000
+# http://localhost:8000 접속
+```
