@@ -1,4 +1,4 @@
-# 🐭 Zodiac Tower — 우주 콩콩 동물탑 🚀
+# 🐭 Zodiac Tower 🚀
 
 **▶ 지금 플레이하기: [https://meetrick.github.io/zodiac-tower/](https://meetrick.github.io/zodiac-tower/)**
 
@@ -12,11 +12,6 @@
 - 삐뚤게 쌓을수록 탑이 기우뚱거리고, 너무 기울면 와르르 무너집니다.
 - 1~50층은 들판, 51~120층은 노을, 121층부터는 우주! 높이 올라갈수록 빨라져요.
 
-## 특징
-
-- 외부 이미지·오디오 없이 HTML5 Canvas, Vanilla JS, CSS, Web Audio API만 사용
-- 효과음과 배경음악 모두 코드로 합성
-- 스마트폰에서 '홈 화면에 추가'하면 앱처럼 전체 화면으로 실행 (PWA manifest)
 
 ## 로컬 실행
 
