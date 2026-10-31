@@ -1005,7 +1005,7 @@
 
   function drop() {
     if (!mover.active || faller) return;
-    faller = { x: W / 2 + mover.u * S, y: moverY(), vy: S * 3 };
+    faller = { x: W / 2 + mover.u * S, y: moverY(), vy: S * 8 };
     mover.active = false;
     Sound.drop();
   }
@@ -1252,7 +1252,7 @@
     }
 
     if (faller) {
-      faller.vy = Math.min(faller.vy + S * 30 * dt, S * 14);
+      faller.vy = Math.min(faller.vy + S * 60 * dt, S * 24);
       faller.y += faller.vy * dt;
       const landY = baseTopY - S * (n + 0.5);
       if (faller.y >= landY) {
