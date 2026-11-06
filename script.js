@@ -33,19 +33,20 @@
   const MUTE_KEY = 'zodiacTower.muted';
   const MODE_KEY = 'zodiacTower.mode';
 
-  // 난이도: speed=블록 이동 속도 배율, sens=흔들림 민감도 배율, perfect=퍼펙트 판정 폭 배율, tempo=BGM 템포 배율
+  // 난이도: speed=블록 이동 속도 배율, ramp=층마다 빨라지는 정도 배율, cap=최고 속도(블록 높이/초),
+  // sens=흔들림 민감도 배율, perfect=퍼펙트 판정 폭 배율, tempo=BGM 템포 배율
   const MODES = [
     {
       tier: '초보자', icon: '🐣', name: '아장아장 산책', desc: '천천히 콩콩, 처음이라면 여기!',
-      color: '#5DBB63', speed: 1, sens: 1, perfect: 1, tempo: 1, bestKey: 'zodiacTower.best',
+      color: '#5DBB63', speed: 1, ramp: 1, cap: 9, sens: 1, perfect: 1, tempo: 1, bestKey: 'zodiacTower.best',
     },
     {
       tier: '전문가', icon: '🐯', name: '씽씽 질주', desc: '더 빠르게! 실력을 보여줘',
-      color: '#FF9233', speed: 2, sens: 1.25, perfect: 0.85, tempo: 1.12, bestKey: 'zodiacTower.best.expert',
+      color: '#FF9233', speed: 2, ramp: 1.3, cap: 15, sens: 1.3, perfect: 0.85, tempo: 1.12, bestKey: 'zodiacTower.best.expert',
     },
     {
       tier: '지옥', icon: '🔥', name: '불꽃 지옥', desc: '눈 깜짝할 새! 진짜 고수만',
-      color: '#E23E57', speed: 3, sens: 1.6, perfect: 0.7, tempo: 1.25, bestKey: 'zodiacTower.best.hell',
+      color: '#E23E57', speed: 3, ramp: 1.6, cap: 22, sens: 1.7, perfect: 0.7, tempo: 1.25, bestKey: 'zodiacTower.best.hell',
     },
   ];
 
@@ -243,6 +244,166 @@
       tone({ type: 'triangle', f: 560, f2: 280, dur: 0.07, gain: 0.07 });
     }
 
+    // 동물 목소리 합성: pts=[[시간, 주파수]...], vib=비브라토 폭(Hz), am=떨림(0~1)
+    function voice({
+      type = 'sawtooth', t, pts, dur, gain, attack = 0.02,
+      filter, filterType = 'lowpass', q = 1, vib = 0, vibRate = 6, am = 0, amRate = 20, dest,
+    }) {
+      t = t === undefined ? ac.currentTime : t;
+      const o = ac.createOscillator();
+      o.type = type;
+      o.frequency.setValueAtTime(pts[0][1], t);
+      for (let i = 1; i < pts.length; i++) o.frequency.exponentialRampToValueAtTime(pts[i][1], t + pts[i][0]);
+      const nodes = [o];
+      if (vib) {
+        const lfo = ac.createOscillator();
+        const depth = ac.createGain();
+        lfo.frequency.value = vibRate;
+        depth.gain.value = vib;
+        lfo.connect(depth);
+        depth.connect(o.frequency);
+        nodes.push(lfo);
+      }
+      let node = o;
+      if (filter) {
+        const fl = ac.createBiquadFilter();
+        fl.type = filterType;
+        fl.frequency.value = filter;
+        fl.Q.value = q;
+        node.connect(fl);
+        node = fl;
+      }
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gain, t + attack);
+      g.gain.setValueAtTime(gain, t + Math.max(attack, dur * 0.6));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      node.connect(g);
+      let out = g;
+      if (am) {
+        const amp = ac.createGain();
+        amp.gain.value = 1 - am / 2;
+        const lfo = ac.createOscillator();
+        const depth = ac.createGain();
+        lfo.frequency.value = amRate;
+        depth.gain.value = am / 2;
+        lfo.connect(depth);
+        depth.connect(amp.gain);
+        g.connect(amp);
+        out = amp;
+        nodes.push(lfo);
+      }
+      out.connect(dest || sfxBus);
+      nodes.forEach((n) => {
+        n.start(t);
+        n.stop(t + dur + 0.05);
+      });
+    }
+
+    // 착지할 때 동물마다 다른 울음소리
+    function animal(idx) {
+      if (!ready()) return;
+      const t = ac.currentTime + 0.02;
+      switch (idx) {
+        case 0: // 쥐: 찍찍
+          for (const d of [0, 0.13]) voice({ type: 'sine', t: t + d, pts: [[0, 2300], [0.05, 3300], [0.1, 2600]], dur: 0.1, gain: 0.12, attack: 0.01 });
+          break;
+        case 1: // 소: 음~매
+          voice({ t, pts: [[0, 150], [0.2, 135], [0.55, 105]], dur: 0.6, gain: 0.3, attack: 0.06, filter: 650, q: 3, vib: 3, vibRate: 5 });
+          break;
+        case 2: // 호랑이: 어흥
+          voice({ t, pts: [[0, 140], [0.15, 120], [0.45, 80]], dur: 0.5, gain: 0.32, attack: 0.04, filter: 900, q: 2, am: 0.8, amRate: 32 });
+          noise({ t, dur: 0.45, gain: 0.12, type: 'lowpass', f: 700, f2: 250, q: 1 });
+          break;
+        case 3: // 토끼: 뿅
+          voice({ type: 'sine', t, pts: [[0, 320], [0.08, 980], [0.22, 700]], dur: 0.24, gain: 0.2, attack: 0.01, vib: 25, vibRate: 14 });
+          break;
+        case 4: // 용: 크아앙
+          voice({ t, pts: [[0, 260], [0.12, 300], [0.5, 110]], dur: 0.55, gain: 0.22, attack: 0.03, filter: 1400, q: 2, vib: 18, vibRate: 9, am: 0.5, amRate: 24 });
+          noise({ t, dur: 0.5, gain: 0.14, f: 1600, f2: 300, q: 1.5 });
+          break;
+        case 5: // 뱀: 쉬이익
+          noise({ t, dur: 0.45, gain: 0.22, type: 'highpass', f: 3500, f2: 6500, q: 0.8 });
+          break;
+        case 6: // 말: 히힝
+          voice({ t, pts: [[0, 700], [0.12, 1050], [0.5, 480]], dur: 0.55, gain: 0.16, attack: 0.02, filter: 1300, filterType: 'bandpass', q: 1.5, vib: 60, vibRate: 18 });
+          break;
+        case 7: // 양: 메에~
+          voice({ t, pts: [[0, 430], [0.45, 380]], dur: 0.5, gain: 0.22, attack: 0.03, filter: 950, filterType: 'bandpass', q: 2, am: 0.7, amRate: 9 });
+          break;
+        case 8: // 원숭이: 우끼끼
+          [0, 0.09, 0.18].forEach((d, i) => voice({ type: 'triangle', t: t + d, pts: [[0, 650 + i * 80], [0.07, 1250 + i * 120]], dur: 0.08, gain: 0.16, attack: 0.01 }));
+          break;
+        case 9: // 닭: 꼬끼오
+          voice({ t, pts: [[0, 600], [0.07, 620]], dur: 0.08, gain: 0.14, attack: 0.01, filter: 1500, filterType: 'bandpass', q: 1.5 });
+          voice({ t: t + 0.1, pts: [[0, 900], [0.07, 950]], dur: 0.08, gain: 0.14, attack: 0.01, filter: 1500, filterType: 'bandpass', q: 1.5 });
+          voice({ t: t + 0.2, pts: [[0, 1150], [0.12, 1250], [0.4, 800]], dur: 0.42, gain: 0.15, attack: 0.02, filter: 1600, filterType: 'bandpass', q: 1.5, vib: 30, vibRate: 11 });
+          break;
+        case 10: // 개: 멍멍
+          for (const d of [0, 0.17]) {
+            voice({ type: 'square', t: t + d, pts: [[0, 480], [0.11, 260]], dur: 0.12, gain: 0.14, attack: 0.008, filter: 1600, q: 1 });
+            noise({ t: t + d, dur: 0.06, gain: 0.08, f: 1200, q: 1 });
+          }
+          break;
+        case 11: // 돼지: 꿀꿀
+          for (const d of [0, 0.19]) voice({ t: t + d, pts: [[0, 125], [0.13, 100]], dur: 0.14, gain: 0.3, attack: 0.01, filter: 600, q: 4, am: 0.9, amRate: 28 });
+          break;
+        default:
+      }
+    }
+
+    // 무너질 때 만화 같은 '으아아아~' 비명 (동물 두 마리 합창)
+    function scream() {
+      if (!ready()) return;
+      const t0 = ac.currentTime + 0.05;
+      const screamVoice = (t, mul, gain) => {
+        const dur = 1.6;
+        const out = ac.createGain();
+        out.gain.setValueAtTime(0.0001, t);
+        out.gain.exponentialRampToValueAtTime(gain, t + 0.06);
+        out.gain.setValueAtTime(gain, t + 1.0);
+        out.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        out.connect(sfxBus);
+        // '아' 모음 포먼트
+        const formants = [[850, 4, 1], [1250, 5, 0.7], [2600, 6, 0.3]].map(([freq, q, level]) => {
+          const f = ac.createBiquadFilter();
+          f.type = 'bandpass';
+          f.frequency.value = freq;
+          f.Q.value = q;
+          const lv = ac.createGain();
+          lv.gain.value = level;
+          f.connect(lv);
+          lv.connect(out);
+          return f;
+        });
+        const lfo = ac.createOscillator();
+        const depth = ac.createGain();
+        lfo.frequency.setValueAtTime(6, t);
+        lfo.frequency.linearRampToValueAtTime(9, t + dur);
+        depth.gain.setValueAtTime(12 * mul, t);
+        depth.gain.linearRampToValueAtTime(45 * mul, t + dur);
+        lfo.connect(depth);
+        const oscs = [-8, 8].map((cents) => {
+          const o = ac.createOscillator();
+          o.type = 'sawtooth';
+          o.detune.value = cents;
+          o.frequency.setValueAtTime(520 * mul, t);
+          o.frequency.exponentialRampToValueAtTime(720 * mul, t + 0.14);
+          o.frequency.exponentialRampToValueAtTime(650 * mul, t + 0.55);
+          o.frequency.exponentialRampToValueAtTime(190 * mul, t + dur);
+          depth.connect(o.frequency);
+          formants.forEach((f) => o.connect(f));
+          return o;
+        });
+        [lfo, ...oscs].forEach((n) => {
+          n.start(t);
+          n.stop(t + dur + 0.05);
+        });
+      };
+      screamVoice(t0, 1, 0.34);
+      screamVoice(t0 + 0.12, 1.45, 0.18);
+    }
+
     // 퍼펙트음: 맑고 높은 '핑' (콤보마다 음이 올라감)
     function perfect(combo) {
       if (!ready()) return;
@@ -259,8 +420,8 @@
     function crash() {
       if (!ready()) return;
       const t = ac.currentTime;
-      noise({ t, dur: 1.4, gain: 0.7, type: 'lowpass', f: 900, f2: 120, q: 0.7 });
-      tone({ type: 'sawtooth', f: 120, f2: 32, t, dur: 1.2, gain: 0.32, filter: 420 });
+      noise({ t, dur: 1.4, gain: 0.5, type: 'lowpass', f: 900, f2: 120, q: 0.7 });
+      tone({ type: 'sawtooth', f: 120, f2: 32, t, dur: 1.2, gain: 0.24, filter: 420 });
       for (let i = 0; i < 6; i++) {
         tone({ f: rand(120, 170), f2: 45, t: t + 0.1 + i * rand(0.12, 0.22), dur: 0.2, gain: 0.25 });
       }
@@ -356,7 +517,7 @@
     }
 
     return {
-      unlock, drop, land, perfect, crash, fanfare, click,
+      unlock, drop, land, perfect, crash, fanfare, click, animal, scream,
       startBgm, stopBgm, setStage, toggleMute, suspend, resume,
       get muted() { return muted; },
     };
@@ -377,6 +538,7 @@
   let safeTop = 0;
 
   let sprites = [];
+  let scaredSprites = [];
   let gradField;
   let gradSunset;
   let gradSpace;
@@ -416,7 +578,7 @@
     const padBottom = Math.ceil(S * 0.08);
     const w = BW + padSide * 2;
     const h = S + padTop + padBottom;
-    sprites = COLORS.map((_, i) => {
+    const make = (i, scared) => {
       const c = document.createElement('canvas');
       c.width = Math.ceil(w * DPR);
       c.height = Math.ceil(h * DPR);
@@ -424,12 +586,15 @@
       g.scale(DPR, DPR);
       g.lineJoin = 'round';
       g.lineCap = 'round';
-      drawCharacter(g, i, padSide, padTop, BW, S);
+      drawCharacter(g, i, padSide, padTop, BW, S, scared);
       return { c, w, h, ox: padSide + BW / 2, oy: padTop + S };
-    });
+    };
+    sprites = COLORS.map((_, i) => make(i, false));
+    scaredSprites = COLORS.map((_, i) => make(i, true));
   }
 
-  function drawCharacter(g, idx, x, y, w, h) {
+  // scared=true면 무너질 때 쓰는 '><' 눈, 벌린 입, 식은땀 얼굴
+  function drawCharacter(g, idx, x, y, w, h, scared) {
     const cx = x + w / 2;
     const col = COLORS[idx];
     const line = shade(col, -0.45);
@@ -483,8 +648,17 @@
     };
     const eyes = (ey, dx, r = h * 0.085) => {
       for (const s of [-1, 1]) {
-        oval(cx + s * dx, ey, r * 0.82, r, INK, 0, false);
-        oval(cx + s * dx - r * 0.25, ey - r * 0.38, r * 0.32, r * 0.32, '#FFFFFF', 0, false);
+        if (scared) {
+          const ex = cx + s * dx;
+          strokePath(() => {
+            g.moveTo(ex + s * r * 0.8, ey - r * 0.9);
+            g.lineTo(ex - s * r * 0.7, ey);
+            g.lineTo(ex + s * r * 0.8, ey + r * 0.9);
+          }, INK, lw * 1.5);
+        } else {
+          oval(cx + s * dx, ey, r * 0.82, r, INK, 0, false);
+          oval(cx + s * dx - r * 0.25, ey - r * 0.38, r * 0.32, r * 0.32, '#FFFFFF', 0, false);
+        }
       }
     };
     const blush = (by, dx, color = 'rgba(255,110,140,0.4)') => {
@@ -492,6 +666,11 @@
     };
     // 'ω' 모양 입
     const mouth = (my, size = h * 0.065) => {
+      if (scared) {
+        oval(cx, my + size * 0.5, size * 0.75, size * 0.9, '#5A2A35', 0, false);
+        oval(cx, my + size * 1.0, size * 0.45, size * 0.3, '#FF8FA3', 0, false);
+        return;
+      }
       const r = size / 2;
       const a0 = 0.1 * Math.PI;
       const a1 = 0.9 * Math.PI;
@@ -735,7 +914,8 @@
         oval(cx, y + h * 0.64, h * 0.36, h * 0.22, '#F6CBA2', 0, false);
         eyes(y + h * 0.42, h * 0.17, h * 0.075);
         for (const s of [-1, 1]) oval(cx + s * h * 0.04, y + h * 0.58, h * 0.018, h * 0.018, '#6B4430', 0, false);
-        strokePath(() => g.arc(cx, y + h * 0.63, h * 0.12, 0.15 * Math.PI, 0.85 * Math.PI), '#6B4430', lw);
+        if (scared) mouth(y + h * 0.64, h * 0.09);
+        else strokePath(() => g.arc(cx, y + h * 0.63, h * 0.12, 0.15 * Math.PI, 0.85 * Math.PI), '#6B4430', lw);
         blush(y + h * 0.6, h * 0.3);
         break;
       }
@@ -788,6 +968,17 @@
       }
       default:
         body();
+    }
+
+    if (scared) {
+      // 식은땀 방울
+      const sx = x + w - h * 0.42;
+      const sy = y + h * 0.1;
+      g.beginPath();
+      g.moveTo(sx, sy - h * 0.13);
+      g.quadraticCurveTo(sx + h * 0.09, sy + h * 0.02, sx, sy + h * 0.06);
+      g.quadraticCurveTo(sx - h * 0.09, sy + h * 0.02, sx, sy - h * 0.13);
+      paint('#8FD3FF', '#3E8FD1');
     }
   }
 
@@ -890,6 +1081,8 @@
   let particles = [];
   let floaters = [];
   let shootingStars = [];
+  let flyers = [];       // 배경을 지나가는 새, 비행기, 스카이다이버, 열기구, 인공위성, UFO
+  let flyerTimer = 1;
 
   let bodies = [];       // 붕괴 시 물리 바디
   let goT = 0;
@@ -906,19 +1099,20 @@
   const isMenu = () => state === STATE.PROLOGUE || state === STATE.SELECT;
 
   // ===================== 난이도 =====================
-  function moverSpeed(f) { // 블록/초
-    let v;
-    if (f <= 50) v = 2.0 + f * 0.012;
-    else if (f <= 120) v = 2.6 + (f - 50) * 0.025;
-    else v = Math.min(6.5, 4.6 + (f - 120) * 0.02);
-    return v * mode().speed;
+  function moverSpeed(f) { // 블록 높이/초
+    let growth;
+    if (f <= 50) growth = f * 0.025;
+    else if (f <= 120) growth = 1.25 + (f - 50) * 0.035;
+    else growth = 3.7 + (f - 120) * 0.03;
+    const m = mode();
+    return Math.min(m.cap, m.speed * (2 + growth * m.ramp));
   }
 
   function sensitivity(f) {
     let v;
-    if (f <= 50) v = 1;
-    else if (f <= 120) v = 1 + ((f - 50) / 70) * 0.6;
-    else v = Math.min(2.0, 1.7 + (f - 120) * 0.005);
+    if (f <= 50) v = 1 + f * 0.004;
+    else if (f <= 120) v = 1.2 + ((f - 50) / 70) * 0.6;
+    else v = Math.min(2.3, 1.9 + (f - 120) * 0.005);
     return v * mode().sens;
   }
 
@@ -1003,8 +1197,22 @@
     mover.appear = 0;
   }
 
+  function stepMover(dt) {
+    const [lo, hi] = moverBounds();
+    mover.u += mover.dir * moverSpeed(blocks.length + 1) * dt;
+    if (mover.u > hi) {
+      mover.u = hi;
+      mover.dir = -1;
+    } else if (mover.u < lo) {
+      mover.u = lo;
+      mover.dir = 1;
+    }
+  }
+
   function drop() {
     if (!mover.active || faller) return;
+    // 빠른 속도에서도 프레임 사이에 누른 순간의 위치로 판정
+    stepMover(clamp((performance.now() - last) / 1000, 0, 0.05));
     faller = { x: W / 2 + mover.u * S, y: moverY(), vy: S * 8 };
     mover.active = false;
     Sound.drop();
@@ -1038,6 +1246,7 @@
     const landX = W / 2 + u * S;
     const landY = faller.y;
     faller = null;
+    Sound.animal(n % 12);
 
     if (perfect) {
       combo++;
@@ -1122,6 +1331,7 @@
 
     Sound.stopBgm();
     Sound.crash();
+    Sound.scream();
     cheer(1);
   }
 
@@ -1222,6 +1432,21 @@
       s.y += s.vy * dt;
     }
     shootingStars = shootingStars.filter((s) => s.life > 0);
+
+    flyerTimer -= dt;
+    if (flyerTimer <= 0) {
+      flyerTimer = rand(2.5, 5.5);
+      if (flyers.length < 5) spawnFlyers();
+    }
+    for (const f of flyers) {
+      f.t += dt;
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+    }
+    flyers = flyers.filter((f) => {
+      const y = flyerY(f);
+      return f.x > -S * 4 && f.x < W + S * 4 && y < H + S * 4 && y > -S * 8;
+    });
   }
 
   function updatePlaying(dt) {
@@ -1239,15 +1464,7 @@
     }
 
     if (mover.active) {
-      const [lo, hi] = moverBounds();
-      mover.u += mover.dir * moverSpeed(n + 1) * dt;
-      if (mover.u > hi) {
-        mover.u = hi;
-        mover.dir = -1;
-      } else if (mover.u < lo) {
-        mover.u = lo;
-        mover.dir = 1;
-      }
+      stepMover(dt);
       mover.appear = Math.min(1, mover.appear + dt * 6);
     }
 
@@ -1339,8 +1556,8 @@
   }
 
   // (x, y)는 블록 중심, 스케일과 찌그러짐은 블록 바닥 중앙 기준
-  function drawBlock(a, x, y, rot, squash, scale) {
-    const sp = sprites[a];
+  function drawBlock(a, x, y, rot, squash, scale, scared) {
+    const sp = (scared ? scaredSprites : sprites)[a];
     ctx.save();
     ctx.translate(x, y);
     if (rot) ctx.rotate(rot);
@@ -1475,6 +1692,305 @@
     }
   }
 
+  // ===================== 배경 비행체 =====================
+  // 카메라가 움직이면 탑보다 느리게 따라 움직여 원근감을 줌
+  const flyerY = (f) => f.y + (f.cam0 - camY) * f.par;
+
+  function spawnFlyers() {
+    const zone = altSpace > 0.5 ? 'space' : altSunset > 0.5 ? 'sunset' : 'sky';
+    const table = {
+      sky: [['bird', 4], ['plane', 2], ['skydiver', 2], ['balloon', 1]],
+      sunset: [['bird', 4], ['plane', 2], ['balloon', 2], ['skydiver', 1]],
+      space: [['satellite', 3], ['ufo', 3]],
+    }[zone];
+    let r = Math.random() * table.reduce((sum, [, w]) => sum + w, 0);
+    const type = table.find(([, w]) => (r -= w) < 0)[0];
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const base = {
+      type, dir, t: rand(0, 10), cam0: camY, par: rand(0.25, 0.45), vy: 0,
+      x: dir > 0 ? -S * 2 : W + S * 2, y: rand(safeTop + H * 0.12, H * 0.55),
+    };
+    switch (type) {
+      case 'bird': {
+        const count = 1 + Math.floor(Math.random() * 4);
+        const vx = dir * S * rand(1.3, 2);
+        const s = S * rand(0.2, 0.28);
+        const color = ['#FFFFFF', '#FFE27A', '#FFB8CC', '#B8F0C8'][Math.floor(Math.random() * 4)];
+        for (let k = 0; k < count; k++) {
+          const row = Math.ceil(k / 2) * (k % 2 ? 1 : -1);
+          flyers.push({ ...base, x: base.x - dir * k * S * 0.55, y: base.y + row * S * 0.28, vx, s, color, t: base.t + k * 0.7 });
+        }
+        break;
+      }
+      case 'plane':
+        flyers.push({ ...base, y: rand(safeTop + H * 0.1, H * 0.35), vx: dir * S * rand(1.6, 2.4), s: S * 0.5 });
+        break;
+      case 'skydiver':
+        flyers.push({ ...base, x: rand(W * 0.12, W * 0.88), y: -S * 2, vx: dir * S * 0.25, vy: S * rand(0.5, 0.8), s: S * 0.42 });
+        break;
+      case 'balloon': {
+        const palettes = [['#FF6B6B', '#FFD93D'], ['#4DABF7', '#FFFFFF'], ['#B197FC', '#FFC9DE'], ['#51CF66', '#FFE066']];
+        flyers.push({ ...base, vx: dir * S * rand(0.35, 0.6), s: S * 0.5, colors: palettes[Math.floor(Math.random() * palettes.length)] });
+        break;
+      }
+      case 'satellite':
+        flyers.push({ ...base, vx: dir * S * rand(0.4, 0.7), s: S * 0.35 });
+        break;
+      case 'ufo':
+        flyers.push({ ...base, vx: dir * S * rand(1.1, 1.7), s: S * 0.45 });
+        break;
+      default:
+    }
+  }
+
+  function fpoly(pts, fill, stroke, lw = 0.04) {
+    ctx.beginPath();
+    pts.forEach(([px, py], k) => (k ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (stroke) {
+      ctx.lineWidth = lw;
+      ctx.strokeStyle = stroke;
+      ctx.stroke();
+    }
+  }
+
+  function fcircle(px, py, r, fill) {
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, TAU);
+    ctx.fillStyle = fill;
+    ctx.fill();
+  }
+
+  function fline(pts, color, lw) {
+    ctx.beginPath();
+    pts.forEach(([px, py], k) => (k ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.stroke();
+  }
+
+  // 아래 그리기 함수들은 비행체 크기(f.s)를 1로 둔 좌표계에서 그림
+  function drawBird(f, dusk) {
+    ctx.scale(f.dir, 1);
+    const flap = Math.sin(f.t * 11);
+    const body = dusk ? '#3B2747' : f.color;
+    fpoly([[-0.45, 0], [-0.8, -0.18], [-0.75, 0.12]], body);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 0.52, 0.3, 0, 0, TAU);
+    ctx.moveTo(0.66, -0.14);
+    ctx.arc(0.42, -0.14, 0.24, 0, TAU);
+    ctx.fillStyle = body;
+    ctx.fill();
+    if (!dusk) {
+      ctx.lineWidth = 0.05;
+      ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+      ctx.stroke();
+    }
+    fpoly([[0.62, -0.2], [0.9, -0.11], [0.62, -0.03]], dusk ? body : '#FFB52E');
+    if (!dusk) fcircle(0.5, -0.19, 0.05, '#2E2228');
+    ctx.beginPath();
+    ctx.moveTo(-0.22, -0.05);
+    ctx.quadraticCurveTo(-0.15, -0.05 - 0.75 * flap, 0.26, -0.05);
+    ctx.closePath();
+    ctx.fillStyle = dusk ? '#2A1A33' : shade(f.color, -0.12);
+    ctx.fill();
+  }
+
+  function drawPlane(f, dusk) {
+    ctx.scale(f.dir, 1);
+    const trail = ctx.createLinearGradient(-6, 0, -1, 0);
+    trail.addColorStop(0, 'rgba(255,255,255,0)');
+    trail.addColorStop(1, dusk ? 'rgba(255,200,220,0.6)' : 'rgba(255,255,255,0.8)');
+    fline([[-6, -0.02], [-1.05, -0.02]], trail, 0.14);
+    fpoly([[-0.1, -0.1], [0.2, -0.1], [-0.2, -0.45], [-0.38, -0.45]], '#C9D6E6');
+    fpoly([[-0.95, -0.12], [-1.08, -0.62], [-0.82, -0.62], [-0.55, -0.12]], '#FF6B6B');
+    squirclePath(ctx, -1.05, -0.2, 2.1, 0.4, 0.2);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fill();
+    ctx.lineWidth = 0.04;
+    ctx.strokeStyle = '#AFC0D4';
+    ctx.stroke();
+    ctx.fillStyle = '#FF6B6B';
+    ctx.fillRect(-0.95, 0.04, 1.7, 0.06);
+    for (let k = 0; k < 6; k++) fcircle(-0.6 + k * 0.2, -0.05, 0.05, '#7FC8FF');
+    ctx.beginPath();
+    ctx.ellipse(0.82, -0.06, 0.12, 0.07, 0, 0, TAU);
+    ctx.fillStyle = '#3A6EA5';
+    ctx.fill();
+    fpoly([[-0.15, 0.05], [0.25, 0.05], [-0.1, 0.55], [-0.35, 0.55]], '#E6EEF7', '#AFC0D4');
+    if (Math.sin(f.t * 6) > 0.3) {
+      fcircle(-0.95, -0.62, 0.06, '#FF4D4D');
+      fcircle(-0.32, 0.55, 0.06, '#5CFF7A');
+    }
+  }
+
+  function drawSkydiver(f) {
+    ctx.rotate(Math.sin(f.t * 1.6) * 0.15);
+    const canopy = () => {
+      ctx.beginPath();
+      ctx.moveTo(-1, 0);
+      ctx.arc(0, 0, 1, Math.PI, TAU);
+      for (let k = 0; k < 4; k++) ctx.quadraticCurveTo(0.75 - k * 0.5, -0.2, 0.5 - k * 0.5, 0);
+      ctx.closePath();
+    };
+    canopy();
+    ctx.save();
+    ctx.clip();
+    ['#FF6B6B', '#FFFFFF', '#FFD93D', '#FFFFFF', '#4DABF7'].forEach((c, k) => {
+      ctx.fillStyle = c;
+      ctx.fillRect(-1 + k * 0.4, -1.1, 0.41, 1.2);
+    });
+    ctx.restore();
+    canopy();
+    ctx.lineWidth = 0.04;
+    ctx.strokeStyle = 'rgba(80,40,60,0.5)';
+    ctx.stroke();
+    for (const px of [-1, -0.5, 0.5, 1]) fline([[px, 0], [px * 0.12, 1.3]], 'rgba(60,60,60,0.6)', 0.025);
+    fline([[-0.14, 1.38], [-0.36, 1.12]], '#4DABF7', 0.09);
+    fline([[0.14, 1.38], [0.36, 1.12]], '#4DABF7', 0.09);
+    fline([[-0.07, 1.7], [-0.16, 1.98]], '#4DABF7', 0.1);
+    fline([[0.07, 1.7], [0.16, 1.98]], '#4DABF7', 0.1);
+    squirclePath(ctx, -0.15, 1.3, 0.3, 0.44, 0.1);
+    ctx.fillStyle = '#4DABF7';
+    ctx.fill();
+    fcircle(0, 1.16, 0.17, '#FFD9B3');
+    ctx.beginPath();
+    ctx.arc(0, 1.14, 0.18, Math.PI, TAU);
+    ctx.fillStyle = '#FF6B6B';
+    ctx.fill();
+    fcircle(-0.06, 1.19, 0.025, '#2E2228');
+    fcircle(0.06, 1.19, 0.025, '#2E2228');
+  }
+
+  function drawBalloon(f) {
+    ctx.translate(0, Math.sin(f.t * 1.2) * 0.1);
+    const envelope = () => {
+      ctx.beginPath();
+      ctx.moveTo(-0.3, 1.0);
+      ctx.bezierCurveTo(-1.1, 0.4, -1.0, -0.9, 0, -0.9);
+      ctx.bezierCurveTo(1.0, -0.9, 1.1, 0.4, 0.3, 1.0);
+      ctx.closePath();
+    };
+    envelope();
+    ctx.save();
+    ctx.clip();
+    for (let k = 0; k < 5; k++) {
+      ctx.fillStyle = f.colors[k % 2];
+      ctx.fillRect(-1.1 + k * 0.44, -1, 0.45, 2.1);
+    }
+    ctx.restore();
+    envelope();
+    ctx.lineWidth = 0.04;
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+    ctx.stroke();
+    fline([[-0.3, 1.0], [-0.2, 1.35]], '#7A5238', 0.03);
+    fline([[0.3, 1.0], [0.2, 1.35]], '#7A5238', 0.03);
+    squirclePath(ctx, -0.22, 1.33, 0.44, 0.3, 0.06);
+    ctx.fillStyle = '#B07A45';
+    ctx.fill();
+    ctx.strokeStyle = '#7A5238';
+    ctx.stroke();
+  }
+
+  function drawSatellite(f) {
+    ctx.rotate(f.t * 0.25 * f.dir);
+    for (const s of [-1, 1]) {
+      fline([[s * 0.3, 0], [s * 0.45, 0]], '#C8C8C8', 0.07);
+      const px = s > 0 ? 0.45 : -1.45;
+      ctx.fillStyle = '#2F6BD8';
+      ctx.fillRect(px, -0.25, 1.0, 0.5);
+      ctx.lineWidth = 0.04;
+      ctx.strokeStyle = '#9CC3FF';
+      ctx.strokeRect(px, -0.25, 1.0, 0.5);
+      fline([[px + 0.33, -0.25], [px + 0.33, 0.25]], '#6FA0F0', 0.025);
+      fline([[px + 0.66, -0.25], [px + 0.66, 0.25]], '#6FA0F0', 0.025);
+      fline([[px, 0], [px + 1.0, 0]], '#6FA0F0', 0.025);
+    }
+    squirclePath(ctx, -0.3, -0.32, 0.6, 0.64, 0.08);
+    ctx.fillStyle = '#F4C542';
+    ctx.fill();
+    ctx.strokeStyle = '#B8902A';
+    ctx.stroke();
+    fline([[0, -0.32], [0, -0.52]], '#DDDDDD', 0.04);
+    ctx.beginPath();
+    ctx.ellipse(0, -0.55, 0.26, 0.1, 0, Math.PI, TAU);
+    ctx.closePath();
+    ctx.fillStyle = '#EEEEEE';
+    ctx.fill();
+    if (Math.sin(f.t * 5) > 0) fcircle(0.2, 0.2, 0.06, '#FF4D4D');
+  }
+
+  function drawUFO(f) {
+    ctx.translate(0, Math.sin(f.t * 2.5) * 0.12);
+    ctx.rotate(Math.sin(f.t * 1.7) * 0.08);
+    if (Math.sin(f.t * 0.9) > 0.55) {
+      const beam = ctx.createLinearGradient(0, 0.1, 0, 2.2);
+      beam.addColorStop(0, 'rgba(255,250,170,0.55)');
+      beam.addColorStop(1, 'rgba(255,250,170,0)');
+      fpoly([[-0.35, 0.15], [0.35, 0.15], [0.9, 2.2], [-0.9, 2.2]], beam);
+    }
+    // 돔 안의 외계인
+    fline([[-0.1, -0.45], [-0.2, -0.66]], '#5FC45F', 0.04);
+    fline([[0.1, -0.45], [0.2, -0.66]], '#5FC45F', 0.04);
+    fcircle(-0.2, -0.68, 0.05, '#FFE45C');
+    fcircle(0.2, -0.68, 0.05, '#FFE45C');
+    ctx.beginPath();
+    ctx.ellipse(0, -0.3, 0.22, 0.2, 0, 0, TAU);
+    ctx.fillStyle = '#7CE07C';
+    ctx.fill();
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(s * 0.08, -0.32, 0.06, 0.085, s * 0.3, 0, TAU);
+      ctx.fillStyle = '#1E1E2E';
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(0, -0.12, 0.48, Math.PI, TAU);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(170,230,255,0.4)';
+    ctx.fill();
+    ctx.lineWidth = 0.04;
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.stroke();
+    const hull = ctx.createLinearGradient(0, -0.35, 0, 0.25);
+    hull.addColorStop(0, '#DDE3EE');
+    hull.addColorStop(1, '#8D98B0');
+    ctx.beginPath();
+    ctx.ellipse(0, -0.05, 1.15, 0.3, 0, 0, TAU);
+    ctx.fillStyle = hull;
+    ctx.fill();
+    ctx.strokeStyle = '#6E7891';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(0, 0.14, 0.6, 0.13, 0, 0, TAU);
+    ctx.fillStyle = '#6E7891';
+    ctx.fill();
+    for (let k = 0; k < 6; k++) {
+      fcircle(-0.85 + k * 0.34, 0, 0.07, `hsl(${(f.t * 200 + k * 60) % 360},90%,65%)`);
+    }
+  }
+
+  function drawFlyers() {
+    const dusk = mixSunset > 0.5 && altSpace < 0.5;
+    for (const f of flyers) {
+      const y = flyerY(f);
+      ctx.save();
+      ctx.translate(f.x, y);
+      ctx.scale(f.s, f.s);
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      if (f.type === 'bird') drawBird(f, dusk);
+      else if (f.type === 'plane') drawPlane(f, dusk);
+      else if (f.type === 'skydiver') drawSkydiver(f);
+      else if (f.type === 'balloon') drawBalloon(f);
+      else if (f.type === 'satellite') drawSatellite(f);
+      else if (f.type === 'ufo') drawUFO(f);
+      ctx.restore();
+    }
+  }
+
   function drawGround() {
     if (groundY - S * 1.5 - camY > H) return;
     const left = camX - 20;
@@ -1564,7 +2080,8 @@
       ctx.ellipse(x, y, BW * c.scale * 0.45, S * c.scale * 0.14, 0, 0, TAU);
       ctx.fill();
       const breathe = c.h > 0 ? 0 : 0.5 + 0.5 * Math.sin(time * 5 + c.dx);
-      drawBlock(c.a, x, y - c.h - S / 2, 0, breathe * 0.4, c.scale);
+      const scared = state === STATE.GAMEOVER && goT < 2.5;
+      drawBlock(c.a, x, y - c.h - S / 2, 0, breathe * 0.4, c.scale, scared);
     }
   }
 
@@ -1586,7 +2103,7 @@
     for (const b of bodies) {
       const sy = b.y - camY;
       if (sy < -S * 2 || sy > H + S * 2) continue;
-      drawBlock(b.a, b.x, b.y, b.rot, 0);
+      drawBlock(b.a, b.x, b.y, b.rot, 0, 1, true);
     }
   }
 
@@ -1886,6 +2403,7 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     drawSky();
     drawBackdrop();
+    drawFlyers();
 
     let sx = 0;
     let sy = 0;
