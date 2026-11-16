@@ -1,58 +1,58 @@
 'use strict';
 
 (() => {
-  // ===================== 상수 =====================
-  // 12간지 순서: 쥐, 소, 호랑이, 토끼, 용, 뱀, 말, 양, 원숭이, 닭, 개, 돼지
+  // ===================== CONSTANTS =====================
+  // Zodiac order: Rat, Ox, Tiger, Rabbit, Dragon, Snake, Horse, Sheep, Monkey, Rooster, Dog, Pig
   const COLORS = [
-    '#D3CCEB', // 쥐 - 라벤더 그레이
-    '#FBF4E6', // 소 - 우유빛
-    '#FFC27A', // 호랑이 - 살구 오렌지
-    '#FFF1F5', // 토끼 - 벚꽃 화이트
-    '#9EE6BE', // 용 - 민트
-    '#C3E88C', // 뱀 - 라임
-    '#DDA877', // 말 - 캐러멜
-    '#FFFDF4', // 양 - 구름 양털
-    '#C99168', // 원숭이 - 코코아
-    '#FFF6DE', // 닭 - 바닐라
-    '#F2CF9E', // 개 - 비스킷
-    '#FFC8D5', // 돼지 - 딸기우유
+    '#D3CCEB', // Rat - Lavender Gray
+    '#FBF4E6', // Ox - Milky White
+    '#FFC27A', // Tiger - Apricot Orange
+    '#FFF1F5', // Rabbit - Cherry Blossom White
+    '#9EE6BE', // Dragon - Mint
+    '#C3E88C', // Snake - Lime
+    '#DDA877', // Horse - Caramel
+    '#FFFDF4', // Sheep - Cloud Fleece
+    '#C99168', // Monkey - Cocoa
+    '#FFF6DE', // Rooster - Vanilla
+    '#F2CF9E', // Dog - Biscuit
+    '#FFC8D5', // Pig - Strawberry Milk
   ];
   const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif';
   const UI_FONT = '-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif';
-  const PROLOGUE_TEXT = '저 별에는 무엇이 있을까?';
+  const PROLOGUE_TEXT = "What's out there in the stars?";
 
   const TAU = Math.PI * 2;
-  const BLOCK_RATIO = 1.75;       // 블록 가로/세로 비율
-  const HOVER_GAP = 2.8;          // 이동 블록과 탑 꼭대기 사이 거리(블록 높이 단위)
-  const PERFECT_TOL = 0.06;       // 퍼펙트 판정 허용 오차(블록 너비 대비)
+  const BLOCK_RATIO = 1.75;       // Block width/height ratio
+  const HOVER_GAP = 2.8;          // Distance between moving block and tower top (in block heights)
+  const PERFECT_TOL = 0.06;       // Tolerance for perfect drop (relative to block width)
   const GOOD_TOL = 0.14;
-  const SUPPORT_HALF = 0.52;      // 중심이 이 범위를 벗어나면 낙하(블록 너비 대비)
-  const PEDESTAL_HALF = 0.62;     // 받침대 절반 너비(블록 너비 대비)
-  const CAM_ANCHOR = 0.62;        // 탑 꼭대기가 화면 높이의 이 위치에 오도록 카메라 이동
-  const MAX_SWING_RANGE = 2.4;    // 이동 블록의 최대 좌우 진폭(블록 높이 단위)
+  const SUPPORT_HALF = 0.52;      // Drops if center falls outside this range (relative to block width)
+  const PEDESTAL_HALF = 0.62;     // Half width of the pedestal (relative to block width)
+  const CAM_ANCHOR = 0.62;        // Camera anchor: tower top will be at this height ratio
+  const MAX_SWING_RANGE = 2.4;    // Max horizontal swing range of moving block (in block heights)
   const MUTE_KEY = 'zodiacTower.muted';
   const MODE_KEY = 'zodiacTower.mode';
 
-  // 난이도: speed=블록 이동 속도 배율, ramp=층마다 빨라지는 정도 배율, cap=최고 속도(블록 높이/초),
-  // sens=흔들림 민감도 배율, perfect=퍼펙트 판정 폭 배율, tempo=BGM 템포 배율
+  // Difficulty: speed=move speed mult, ramp=accel per floor mult, cap=max speed (block height/sec),
+  // sens=wobble sensitivity mult, perfect=perfect tolerance mult, tempo=BGM tempo mult
   const MODES = [
     {
-      tier: '초보자', icon: '🐣', name: '아장아장 산책', desc: '천천히 콩콩, 처음이라면 여기!',
+      tier: 'Novice', icon: '🐣', name: 'Leisure Stroll', desc: 'Nice and slow. Perfect for beginners!',
       color: '#5DBB63', speed: 1, ramp: 1, cap: 9, sens: 1, perfect: 1, tempo: 1, bestKey: 'zodiacTower.best',
     },
     {
-      tier: '전문가', icon: '🐯', name: '씽씽 질주', desc: '더 빠르게! 실력을 보여줘',
+      tier: 'Expert', icon: '🐯', name: 'Speed Dash', desc: 'Much faster! Show off your skills.',
       color: '#FF9233', speed: 2, ramp: 1.3, cap: 15, sens: 1.3, perfect: 0.85, tempo: 1.12, bestKey: 'zodiacTower.best.expert',
     },
     {
-      tier: '지옥', icon: '🔥', name: '불꽃 지옥', desc: '눈 깜짝할 새! 진짜 고수만',
+      tier: 'Hell', icon: '🔥', name: 'Inferno', desc: 'Blink and you miss it! For pros only.',
       color: '#E23E57', speed: 3, ramp: 1.6, cap: 22, sens: 1.7, perfect: 0.7, tempo: 1.25, bestKey: 'zodiacTower.best.hell',
     },
   ];
 
   const STATE = { PROLOGUE: 'PROLOGUE', SELECT: 'SELECT', PLAYING: 'PLAYING', GAMEOVER: 'GAMEOVER' };
 
-  // ===================== 유틸 =====================
+  // ===================== UTILS =====================
   const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
   const rand = (a, b) => a + Math.random() * (b - a);
   const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -80,7 +80,7 @@
     return `rgb(${r},${g},${b})`;
   }
 
-  // 모서리가 둥근 사각형(Squircle) 경로
+  // Squircle path
   function squirclePath(c, x, y, w, h, r) {
     r = Math.min(r, w / 2, h / 2);
     c.beginPath();
@@ -109,7 +109,7 @@
     c.closePath();
   }
 
-  // ===================== 사운드 (Web Audio API) =====================
+  // ===================== AUDIO (Web Audio API) =====================
   const Sound = (() => {
     let ac = null;
     let master = null;
@@ -125,21 +125,21 @@
     let nextTime = 0;
     let timer = null;
 
-    // 32스텝(8분음표) 패턴, 0은 쉼표, 숫자는 MIDI 노트
+    // 32-step (8th note) pattern, 0 is rest, numbers are MIDI notes
     const STAGES = [
-      { // 들판: 느리고 평화로운 Sine
+      { // Field: Slow, peaceful Sine
         bpm: 84, leadWave: 'sine', bassWave: 'sine',
         leadGain: 0.13, bassGain: 0.12, leadLen: 1.8, filter: 0, drums: 0,
         lead: [72, 0, 76, 0, 79, 0, 76, 0, 81, 0, 79, 0, 76, 0, 74, 0, 72, 0, 74, 0, 76, 0, 79, 0, 76, 0, 74, 0, 72, 0, 0, 0],
         bass: [48, 0, 0, 0, 55, 0, 0, 0, 53, 0, 0, 0, 55, 0, 0, 0, 48, 0, 0, 0, 55, 0, 0, 0, 53, 0, 0, 0, 48, 0, 0, 0],
       },
-      { // 노을: 템포 업
+      { // Sunset: Tempo up
         bpm: 120, leadWave: 'sine', bassWave: 'triangle',
         leadGain: 0.11, bassGain: 0.11, leadLen: 0.95, filter: 0, drums: 1,
         lead: [72, 76, 79, 76, 81, 79, 76, 74, 72, 74, 76, 79, 81, 84, 81, 79, 77, 81, 84, 81, 79, 76, 74, 76, 72, 74, 76, 79, 76, 74, 72, 0],
         bass: [48, 0, 48, 0, 55, 0, 55, 0, 53, 0, 53, 0, 55, 0, 55, 0, 53, 0, 53, 0, 55, 0, 55, 0, 48, 0, 48, 0, 55, 0, 48, 0],
       },
-      { // 우주: 빠르고 긴박한 Sawtooth
+      { // Space: Fast, intense Sawtooth
         bpm: 156, leadWave: 'sawtooth', bassWave: 'sawtooth',
         leadGain: 0.055, bassGain: 0.07, leadLen: 0.75, filter: 1800, drums: 2,
         lead: [69, 72, 76, 72, 69, 72, 76, 79, 67, 71, 74, 71, 67, 71, 74, 77, 65, 69, 72, 69, 65, 69, 72, 76, 64, 68, 71, 68, 71, 74, 76, 80],
@@ -173,14 +173,14 @@
           musicBus.gain.value = 0;
           musicBus.connect(master);
           noiseBuffer = makeNoise();
-          // iOS 구버전 오디오 잠금 해제용 무음 재생
+          // Silent playback to unlock audio on old iOS versions
           const silent = ac.createBufferSource();
           silent.buffer = ac.createBuffer(1, 1, 22050);
           silent.connect(ac.destination);
           silent.start(0);
         }
         if (ac.state !== 'running') ac.resume();
-      } catch (e) { /* 오디오 미지원 환경 */ }
+      } catch (e) { /* Audio not supported */ }
     }
 
     const ready = () => ac && ac.state === 'running' && !muted;
@@ -230,21 +230,21 @@
       src.stop(t + dur + 0.05);
     }
 
-    // 드롭음: 짧은 '슉'
+    // Drop sound: Short 'swoosh'
     function drop() {
       if (!ready()) return;
       noise({ dur: 0.2, gain: 0.35, f: 3200, f2: 500, q: 1.4 });
       tone({ f: 900, f2: 320, dur: 0.14, gain: 0.04 });
     }
 
-    // 착지음: 말랑한 '콩'
+    // Land sound: Soft 'thump'
     function land() {
       if (!ready()) return;
       tone({ f: 280, f2: 110, dur: 0.13, gain: 0.38 });
       tone({ type: 'triangle', f: 560, f2: 280, dur: 0.07, gain: 0.07 });
     }
 
-    // 동물 목소리 합성: pts=[[시간, 주파수]...], vib=비브라토 폭(Hz), am=떨림(0~1)
+    // Animal voice synthesis: pts=[[time, freq]...], vib=vibrato width(Hz), am=amplitude modulation(0~1)
     function voice({
       type = 'sawtooth', t, pts, dur, gain, attack = 0.02,
       filter, filterType = 'lowpass', q = 1, vib = 0, vibRate = 6, am = 0, amRate = 20, dest,
@@ -300,59 +300,59 @@
       });
     }
 
-    // 착지할 때 동물마다 다른 울음소리
+    // Different cry for each animal upon landing
     function animal(idx) {
       if (!ready()) return;
       const t = ac.currentTime + 0.02;
       switch (idx) {
-        case 0: // 쥐: 찍찍
+        case 0: // Rat: Squeak
           for (const d of [0, 0.13]) voice({ type: 'sine', t: t + d, pts: [[0, 2300], [0.05, 3300], [0.1, 2600]], dur: 0.1, gain: 0.12, attack: 0.01 });
           break;
-        case 1: // 소: 음~매
+        case 1: // Ox: Moo
           voice({ t, pts: [[0, 150], [0.2, 135], [0.55, 105]], dur: 0.6, gain: 0.3, attack: 0.06, filter: 650, q: 3, vib: 3, vibRate: 5 });
           break;
-        case 2: // 호랑이: 어흥
+        case 2: // Tiger: Roar
           voice({ t, pts: [[0, 140], [0.15, 120], [0.45, 80]], dur: 0.5, gain: 0.32, attack: 0.04, filter: 900, q: 2, am: 0.8, amRate: 32 });
           noise({ t, dur: 0.45, gain: 0.12, type: 'lowpass', f: 700, f2: 250, q: 1 });
           break;
-        case 3: // 토끼: 뿅
+        case 3: // Rabbit: Boing
           voice({ type: 'sine', t, pts: [[0, 320], [0.08, 980], [0.22, 700]], dur: 0.24, gain: 0.2, attack: 0.01, vib: 25, vibRate: 14 });
           break;
-        case 4: // 용: 크아앙
+        case 4: // Dragon: Roar (Rawr)
           voice({ t, pts: [[0, 260], [0.12, 300], [0.5, 110]], dur: 0.55, gain: 0.22, attack: 0.03, filter: 1400, q: 2, vib: 18, vibRate: 9, am: 0.5, amRate: 24 });
           noise({ t, dur: 0.5, gain: 0.14, f: 1600, f2: 300, q: 1.5 });
           break;
-        case 5: // 뱀: 쉬이익
+        case 5: // Snake: Hiss
           noise({ t, dur: 0.45, gain: 0.22, type: 'highpass', f: 3500, f2: 6500, q: 0.8 });
           break;
-        case 6: // 말: 히힝
+        case 6: // Horse: Neigh
           voice({ t, pts: [[0, 700], [0.12, 1050], [0.5, 480]], dur: 0.55, gain: 0.16, attack: 0.02, filter: 1300, filterType: 'bandpass', q: 1.5, vib: 60, vibRate: 18 });
           break;
-        case 7: // 양: 메에~
+        case 7: // Sheep: Baa
           voice({ t, pts: [[0, 430], [0.45, 380]], dur: 0.5, gain: 0.22, attack: 0.03, filter: 950, filterType: 'bandpass', q: 2, am: 0.7, amRate: 9 });
           break;
-        case 8: // 원숭이: 우끼끼
+        case 8: // Monkey: Ooh ooh aah aah
           [0, 0.09, 0.18].forEach((d, i) => voice({ type: 'triangle', t: t + d, pts: [[0, 650 + i * 80], [0.07, 1250 + i * 120]], dur: 0.08, gain: 0.16, attack: 0.01 }));
           break;
-        case 9: // 닭: 꼬끼오
+        case 9: // Rooster: Cock-a-doodle-doo
           voice({ t, pts: [[0, 600], [0.07, 620]], dur: 0.08, gain: 0.14, attack: 0.01, filter: 1500, filterType: 'bandpass', q: 1.5 });
           voice({ t: t + 0.1, pts: [[0, 900], [0.07, 950]], dur: 0.08, gain: 0.14, attack: 0.01, filter: 1500, filterType: 'bandpass', q: 1.5 });
           voice({ t: t + 0.2, pts: [[0, 1150], [0.12, 1250], [0.4, 800]], dur: 0.42, gain: 0.15, attack: 0.02, filter: 1600, filterType: 'bandpass', q: 1.5, vib: 30, vibRate: 11 });
           break;
-        case 10: // 개: 멍멍
+        case 10: // Dog: Woof woof
           for (const d of [0, 0.17]) {
             voice({ type: 'square', t: t + d, pts: [[0, 480], [0.11, 260]], dur: 0.12, gain: 0.14, attack: 0.008, filter: 1600, q: 1 });
             noise({ t: t + d, dur: 0.06, gain: 0.08, f: 1200, q: 1 });
           }
           break;
-        case 11: // 돼지: 꿀꿀
+        case 11: // Pig: Oink
           for (const d of [0, 0.19]) voice({ t: t + d, pts: [[0, 125], [0.13, 100]], dur: 0.14, gain: 0.3, attack: 0.01, filter: 600, q: 4, am: 0.9, amRate: 28 });
           break;
         default:
       }
     }
 
-    // 무너질 때 만화 같은 '으아아아~' 비명 (동물 두 마리 합창)
+    // Cartoonish 'Aaaah!' scream on collapse (Two animal chorus)
     function scream() {
       if (!ready()) return;
       const t0 = ac.currentTime + 0.05;
@@ -364,7 +364,7 @@
         out.gain.setValueAtTime(gain, t + 1.0);
         out.gain.exponentialRampToValueAtTime(0.0001, t + dur);
         out.connect(sfxBus);
-        // '아' 모음 포먼트
+        // 'Ah' vowel formants
         const formants = [[850, 4, 1], [1250, 5, 0.7], [2600, 6, 0.3]].map(([freq, q, level]) => {
           const f = ac.createBiquadFilter();
           f.type = 'bandpass';
@@ -404,7 +404,7 @@
       screamVoice(t0 + 0.12, 1.45, 0.18);
     }
 
-    // 퍼펙트음: 맑고 높은 '핑' (콤보마다 음이 올라감)
+    // Perfect sound: Clear, high 'ping' (pitch rises with combo)
     function perfect(combo) {
       if (!ready()) return;
       const steps = [0, 2, 4, 7, 9, 12, 14, 16];
@@ -416,7 +416,7 @@
       tone({ f: 280, f2: 110, t, dur: 0.12, gain: 0.25 });
     }
 
-    // 붕괴음: 낮고 탁한 소리
+    // Crash sound: Low, muffled noise
     function crash() {
       if (!ready()) return;
       const t = ac.currentTime;
@@ -427,13 +427,13 @@
       }
     }
 
-    // 메뉴 선택음: 짧은 '뾱'
+    // Menu select sound: Short 'pip'
     function click() {
       if (!ready()) return;
       tone({ type: 'triangle', f: 660, f2: 1320, dur: 0.12, gain: 0.18 });
     }
 
-    // 구간 진입 팡파레
+    // Stage entrance fanfare
     function fanfare() {
       if (!ready()) return;
       const t = ac.currentTime;
@@ -523,7 +523,7 @@
     };
   })();
 
-  // ===================== 캔버스 & 레이아웃 =====================
+  // ===================== CANVAS & LAYOUT =====================
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const safeProbe = document.getElementById('safe-probe');
@@ -531,10 +531,10 @@
   let W = 0;
   let H = 0;
   let DPR = 1;
-  let S = 80;          // 블록 높이(px), 게임 전체의 기본 길이 단위
-  let BW = 140;        // 블록 너비(px)
-  let groundY = 0;     // 땅 표면(월드 y)
-  let baseTopY = 0;    // 받침대 윗면(월드 y)
+  let S = 80;          // Block height(px), basic unit of length for the whole game
+  let BW = 140;        // Block width(px)
+  let groundY = 0;     // Ground surface (world y)
+  let baseTopY = 0;    // Pedestal top (world y)
   let safeTop = 0;
 
   let sprites = [];
@@ -571,7 +571,7 @@
     buildScenery();
   }
 
-  // 블록 스프라이트: 가로로 긴 둥근 직사각형 몸통 + 귀·뿔·꼬리 등이 바깥으로 살짝 튀어나옴
+  // Block sprite: horizontally long rounded rectangle body + ears, horns, tail slightly protruding
   function buildSprites() {
     const padTop = Math.ceil(S * 0.66);
     const padSide = Math.ceil(S * 0.4);
@@ -593,7 +593,7 @@
     scaredSprites = COLORS.map((_, i) => make(i, true));
   }
 
-  // scared=true면 무너질 때 쓰는 '><' 눈, 벌린 입, 식은땀 얼굴
+  // if scared=true: '><' eyes, open mouth, cold sweat face used when collapsing
   function drawCharacter(g, idx, x, y, w, h, scared) {
     const cx = x + w / 2;
     const col = COLORS[idx];
@@ -664,7 +664,7 @@
     const blush = (by, dx, color = 'rgba(255,110,140,0.4)') => {
       for (const s of [-1, 1]) oval(cx + s * dx, by, h * 0.1, h * 0.055, color, 0, false);
     };
-    // 'ω' 모양 입
+    // 'ω' shaped mouth
     const mouth = (my, size = h * 0.065) => {
       if (scared) {
         oval(cx, my + size * 0.5, size * 0.75, size * 0.9, '#5A2A35', 0, false);
@@ -682,7 +682,7 @@
     };
 
     switch (idx) {
-      case 0: { // 쥐: 큰 동그란 귀, 앞니, 수염, 분홍 꼬리
+      case 0: { // Rat: Large round ears, front teeth, whiskers, pink tail
         for (const s of [-1, 1]) {
           oval(cx + s * h * 0.52, y + h * 0.04, h * 0.27, h * 0.26, col);
           oval(cx + s * h * 0.52, y + h * 0.06, h * 0.16, h * 0.15, '#F7B6C8', 0, false);
@@ -712,7 +712,7 @@
         }, '#7D7393', lw * 0.8);
         break;
       }
-      case 1: { // 소: 뿔, 얼룩무늬, 분홍 코, 코뚜레
+      case 1: { // Ox: Horns, spots, pink nose, nose ring
         for (const s of [-1, 1]) {
           g.beginPath();
           g.moveTo(cx + s * h * 0.36, y + h * 0.12);
@@ -735,7 +735,7 @@
         strokePath(() => g.arc(cx, y + h * 0.79, h * 0.08, 0.15 * Math.PI, 0.85 * Math.PI), '#F2B83A', lw * 1.6);
         break;
       }
-      case 2: { // 호랑이: 줄무늬, 이마의 王, 하얀 주둥이
+      case 2: { // Tiger: Stripes, 王 on forehead, white snout
         for (const s of [-1, 1]) {
           oval(cx + s * h * 0.5, y + h * 0.05, h * 0.21, h * 0.2, col);
           oval(cx + s * h * 0.5, y + h * 0.07, h * 0.11, h * 0.1, '#FFF1DC', 0, false);
@@ -777,7 +777,7 @@
         }
         break;
       }
-      case 3: { // 토끼: 긴 귀(한쪽은 접힘), 앞니
+      case 3: { // Rabbit: Long ears (one folded), front teeth
         oval(cx - h * 0.26, y - h * 0.2, h * 0.13, h * 0.38, col, -0.15);
         oval(cx - h * 0.26, y - h * 0.18, h * 0.065, h * 0.28, '#FFB3C7', -0.15, false);
         oval(cx + h * 0.32, y - h * 0.12, h * 0.13, h * 0.34, col, 0.45);
@@ -796,7 +796,7 @@
         oval(cx, y + h * 0.54, h * 0.065, h * 0.045, '#FF8FB0', 0, false);
         break;
       }
-      case 4: { // 용: 사슴뿔, 머리 지느러미, 긴 수염
+      case 4: { // Dragon: Deer horns, head fins, long whiskers
         strokePath(() => {
           for (const s of [-1, 1]) {
             g.moveTo(cx + s * h * 0.3, y + h * 0.08);
@@ -836,7 +836,7 @@
         }, '#F2B83A', h * 0.04);
         break;
       }
-      case 5: { // 뱀: 말린 꼬리, 마름모 무늬, 갈라진 혀
+      case 5: { // Snake: Curled tail, diamond patterns, forked tongue
         const tail = () => {
           g.moveTo(x + w - h * 0.5, y + h * 0.1);
           g.quadraticCurveTo(x + w - h * 0.02, y - h * 0.06, x + w - h * 0.14, y - h * 0.34);
@@ -865,7 +865,7 @@
         }, '#E8445A', lw * 1.4);
         break;
       }
-      case 6: { // 말: 갈기, 뾰족한 귀, 긴 주둥이
+      case 6: { // Horse: Mane, pointy ears, long snout
         for (const s of [-1, 1]) {
           poly([[cx + s * h * 0.64, y + h * 0.12], [cx + s * h * 0.58, y - h * 0.27], [cx + s * h * 0.38, y + h * 0.06]], col);
           poly([[cx + s * h * 0.58, y + h * 0.08], [cx + s * h * 0.56, y - h * 0.15], [cx + s * h * 0.45, y + h * 0.05]], shade(col, -0.25), false);
@@ -881,7 +881,7 @@
         blush(y + h * 0.5, h * 0.58);
         break;
       }
-      case 7: { // 양: 몽실몽실 양털, 말린 뿔
+      case 7: { // Sheep: Fluffy wool, curled horns
         body();
         for (let k = 0; k <= 6; k++) {
           oval(x + h * 0.2 + (k * (w - h * 0.4)) / 6, y + h * 0.06, h * 0.13, h * 0.12, col, 0, '#E2DCCB');
@@ -900,7 +900,7 @@
         mouth(y + h * 0.7, h * 0.05);
         break;
       }
-      case 8: { // 원숭이: 양옆의 큰 귀, 하트 모양 얼굴
+      case 8: { // Monkey: Large side ears, heart-shaped face
         for (const s of [-1, 1]) {
           const ex = s < 0 ? x : x + w;
           oval(ex, y + h * 0.45, h * 0.21, h * 0.21, col);
@@ -919,7 +919,7 @@
         blush(y + h * 0.6, h * 0.3);
         break;
       }
-      case 9: { // 닭: 빨간 볏, 노란 부리, 볏주머니, 날개
+      case 9: { // Rooster: Red comb, yellow beak, wattle, wings
         oval(cx - h * 0.16, y - h * 0.03, h * 0.11, h * 0.11, '#FF5A5A');
         oval(cx + h * 0.16, y - h * 0.03, h * 0.11, h * 0.11, '#FF5A5A');
         oval(cx, y - h * 0.08, h * 0.14, h * 0.14, '#FF5A5A');
@@ -937,7 +937,7 @@
         }, '#C77A12', lw * 0.8);
         break;
       }
-      case 10: { // 개: 축 처진 귀, 한쪽 눈 얼룩, 내민 혀
+      case 10: { // Dog: Droopy ears, one eye patch, tongue out
         body();
         clipBody(() => oval(cx + h * 0.3, y + h * 0.38, h * 0.18, h * 0.16, '#B87A4B', 0, false));
         for (const s of [-1, 1]) {
@@ -954,7 +954,7 @@
         mouth(y + h * 0.66, h * 0.08);
         break;
       }
-      case 11: { // 돼지: 접힌 세모 귀, 큰 코
+      case 11: { // Pig: Folded triangle ears, large nose
         for (const s of [-1, 1]) {
           poly([[cx + s * h * 0.64, y + h * 0.12], [cx + s * h * 0.62, y - h * 0.22], [cx + s * h * 0.32, y + h * 0.04]], col);
           poly([[cx + s * h * 0.58, y + h * 0.07], [cx + s * h * 0.58, y - h * 0.1], [cx + s * h * 0.42, y + h * 0.04]], '#FF97B0', false);
@@ -971,7 +971,7 @@
     }
 
     if (scared) {
-      // 식은땀 방울
+      // Cold sweat drop
       const sx = x + w - h * 0.42;
       const sy = y + h * 0.1;
       g.beginPath();
@@ -1028,7 +1028,7 @@
       flowers.push({ x: W / 2 + rand(-spanX, spanX), y: groundY + rand(S * 0.2, H * 0.17), c: flowerColors[i % flowerColors.length], s: rand(0.7, 1.2) });
     }
 
-    // 들판에 모인 12간지 동물들 (받침대 양옆 뒷줄 4, 가운데 줄 4, 앞줄 4)
+    // 12 Zodiac animals gathered in the field (4 back row, 4 middle, 4 front)
     const prevHop = crowd.map((c) => ({ h: c.h, vh: c.vh }));
     crowd = [];
     const sideRoom = W / 2 - BW * PEDESTAL_HALF - S * 0.1;
@@ -1052,19 +1052,19 @@
     });
   }
 
-  // ===================== 게임 상태 =====================
+  // ===================== GAME STATE =====================
   let state = STATE.PROLOGUE;
   let time = 0;
   let typeT = 0;
 
-  let blocks = [];       // { u: 중심 x 오프셋(블록 단위), a: 동물 인덱스, squash }
+  let blocks = [];       // { u: center x offset (block unit), a: animal index, squash }
   let mover = { u: 0, dir: 1, active: false, appear: 0 };
   let faller = null;     // { x, y, vy }
   let spawnTimer = 0;
 
-  let lean = 0;          // 누적 기울기(부호 있음)
-  let wobble = 0;        // 흔들림 진폭
-  let sway = 0;          // 현재 프레임의 탑 꼭대기 흔들림 값
+  let lean = 0;          // Accumulated lean (signed)
+  let wobble = 0;        // Wobble amplitude
+  let sway = 0;          // Wobble value at the top of the tower for current frame
   let dangerShown = 0;
   let combo = 0;
 
@@ -1072,19 +1072,19 @@
   let camY = 0;
   let shake = 0;
 
-  let altSunset = 0;     // 고도에 따른 노을/우주 정도(해·행성 표시용)
+  let altSunset = 0;     // Sunset/Space ratio based on altitude (for sun/planet display)
   let altSpace = 0;
-  let twilight = 1;      // 메뉴 화면의 저녁 하늘 정도
-  let mixSunset = 0.65;  // 실제 하늘색 믹스
+  let twilight = 1;      // Evening sky ratio in menu screen
+  let mixSunset = 0.65;  // Actual sky color mix
   let mixSpace = 0.4;
 
   let particles = [];
   let floaters = [];
   let shootingStars = [];
-  let flyers = [];       // 배경을 지나가는 새, 비행기, 스카이다이버, 열기구, 인공위성, UFO
+  let flyers = [];       // Birds, planes, skydivers, balloons, satellites, UFOs passing in the background
   let flyerTimer = 1;
 
-  let bodies = [];       // 붕괴 시 물리 바디
+  let bodies = [];       // Physical bodies upon collapse
   let goT = 0;
   let goCamStart = 0;
   let goCamXStart = 0;
@@ -1098,8 +1098,8 @@
   const mode = () => MODES[modeIdx];
   const isMenu = () => state === STATE.PROLOGUE || state === STATE.SELECT;
 
-  // ===================== 난이도 =====================
-  function moverSpeed(f) { // 블록 높이/초
+  // ===================== DIFFICULTY =====================
+  function moverSpeed(f) { // Block height/sec
     let growth;
     if (f <= 50) growth = f * 0.025;
     else if (f <= 120) growth = 1.25 + (f - 50) * 0.035;
@@ -1122,7 +1122,7 @@
 
   const danger = () => Math.abs(lean) + wobble * 0.5;
 
-  // ===================== 탑 좌표 계산 =====================
+  // ===================== TOWER COORDINATES =====================
   function computeSway() {
     const n = blocks.length;
     if (n < 2) return 0;
@@ -1130,7 +1130,7 @@
     return (lean * 0.55 + wobble * 0.5 * Math.sin(time * 2.4)) * grow;
   }
 
-  // 꼭대기 쪽 블록일수록 크게 휘어지며 흔들림
+  // Blocks closer to the top bend and wobble more
   function blockVisual(i) {
     const n = blocks.length;
     const b = blocks[i];
@@ -1154,7 +1154,7 @@
     return [c - half, c + half];
   }
 
-  // ===================== 게임 흐름 =====================
+  // ===================== GAME FLOW =====================
   function resetRun() {
     blocks = [];
     faller = null;
@@ -1211,8 +1211,8 @@
 
   function drop() {
     if (!mover.active || faller) return;
-    // 빠른 속도에서도 프레임 사이에 누른 순간의 위치로 판정
-    stepMover(clamp((performance.now() - last) / 1000, 0, 0.05));
+    // Determine exact position at the moment of press even at high speeds between frames
+    stepMover(clamp((performance.now() - last) / 1000, 0, 0.1));
     faller = { x: W / 2 + mover.u * S, y: moverY(), vy: S * 8 };
     mover.active = false;
     Sound.drop();
@@ -1236,7 +1236,14 @@
       return;
     }
 
-    const perfect = Math.abs(dx) < PERFECT_TOL * BW * mode().perfect;
+    // Calculate current moving speed in pixels per second
+    const currentSpeedPx = moverSpeed(n + 1) * S;
+    // Guarantee at least a ~33ms perfect window (approx. 2 frames at 60Hz)
+    const minPerfectWindowPx = currentSpeedPx * 0.0165;
+    const baseTolerance = PERFECT_TOL * BW * mode().perfect;
+    const dynamicPerfectTol = Math.max(baseTolerance, minPerfectWindowPx);
+
+    const perfect = Math.abs(dx) < dynamicPerfectTol;
     let u;
     if (n === 0) u = perfect ? 0 : dx / S;
     else u = perfect ? blocks[n - 1].u : blocks[n - 1].u + dx / S;
@@ -1335,7 +1342,7 @@
     cheer(1);
   }
 
-  // ===================== 이펙트 =====================
+  // ===================== EFFECTS =====================
   function burst(x, y, color) {
     const palette = [color, '#FFE45C', '#FFFFFF', '#FF9EC7', '#8FE3FF'];
     for (let i = 0; i < 28; i++) {
@@ -1361,11 +1368,11 @@
     });
   }
 
-  // ===================== 업데이트 =====================
+  // ===================== UPDATE =====================
   function update(dt) {
     time += dt;
 
-    // 배경 믹스: 카메라 고도(층)에 따라 부드럽게 전환, 메뉴 화면은 별이 보이는 저녁 하늘
+    // Background mix: transitions smoothly based on camera altitude (floors), menu screen shows evening starry sky
     const camFloor = isMenu() ? 0 : (baseTopY - H * CAM_ANCHOR - camY) / S;
     altSunset += (clamp((camFloor - 50) / 6, 0, 1) - altSunset) * damp(1.6, dt);
     altSpace += (clamp((camFloor - 120) / 6, 0, 1) - altSpace) * damp(1.6, dt);
@@ -1373,7 +1380,7 @@
     mixSunset = Math.max(altSunset, twilight * 0.65);
     mixSpace = Math.max(altSpace, twilight * 0.4);
 
-    // 동물 친구들 깡충깡충
+    // Animal friends hopping
     const hopRate = isMenu() ? 0.7 : 0.08;
     for (const c of crowd) {
       if (c.h <= 0 && c.vh <= 0 && Math.random() < hopRate * dt) c.vh = S * rand(1.8, 3.2);
@@ -1452,7 +1459,7 @@
   function updatePlaying(dt) {
     const n = blocks.length;
 
-    // 카메라: 탑 꼭대기를 따라 부드럽게 패닝
+    // Camera: Smooth panning following the top of the tower
     const targetCamY = Math.min(0, baseTopY - S * n - H * CAM_ANCHOR);
     camY += (targetCamY - camY) * damp(4, dt);
     const targetCamX = n ? blocks[n - 1].u * S : 0;
@@ -1507,7 +1514,7 @@
       if (b.y + S * 0.5 >= floor) {
         b.y = floor - S * 0.5;
         if (on && Math.abs(b.x - on.x) > BW * 0.2) {
-          // 다른 블록 모서리에 걸치면 옆으로 미끄러져 떨어짐
+          // If caught on another block's edge, slide off sideways
           const s = Math.sign(b.x - on.x);
           b.vx = s * Math.max(Math.abs(b.vx), S * 2.5);
           b.vy = 0;
@@ -1525,7 +1532,7 @@
     }
   }
 
-  // 무너진 블록이 떨어질 바닥(받침대, 땅, 먼저 쌓인 블록 더미)
+  // Floor where collapsed blocks fall (pedestal, ground, previously stacked block pile)
   function surfaceUnder(b) {
     let y = Math.abs(b.x - W / 2) < BW * PEDESTAL_HALF ? baseTopY : groundY + S * 0.2;
     let on = null;
@@ -1539,7 +1546,7 @@
     return { y, on };
   }
 
-  // ===================== 렌더링 =====================
+  // ===================== RENDERING =====================
   function drawText(str, x, y, size, color, opts = {}) {
     ctx.font = `${opts.weight || 800} ${size}px ${UI_FONT}`;
     ctx.textAlign = opts.align || 'center';
@@ -1555,7 +1562,7 @@
     ctx.fillText(...args);
   }
 
-  // (x, y)는 블록 중심, 스케일과 찌그러짐은 블록 바닥 중앙 기준
+  // (x,y) is block center; scale and squash are relative to the bottom center of the block
   function drawBlock(a, x, y, rot, squash, scale, scared) {
     const sp = (scared ? scaredSprites : sprites)[a];
     ctx.save();
@@ -1591,7 +1598,7 @@
   }
 
   function drawBackdrop() {
-    // 별
+    // Stars
     const starAlpha = Math.max(mixSpace, mixSunset * 0.25);
     if (starAlpha > 0.01) {
       ctx.fillStyle = '#FFFFFF';
@@ -1603,7 +1610,7 @@
       ctx.globalAlpha = 1;
     }
 
-    // 별똥별
+    // Shooting stars
     for (const s of shootingStars) {
       ctx.globalAlpha = (s.life / s.max) * altSpace;
       ctx.strokeStyle = '#FFFFFF';
@@ -1615,7 +1622,7 @@
     }
     ctx.globalAlpha = 1;
 
-    // 노을 해
+    // Sunset sun
     const sunAlpha = altSunset * (1 - altSpace);
     if (!isMenu() && sunAlpha > 0.01) {
       const sx = W * 0.74;
@@ -1634,7 +1641,7 @@
       ctx.globalAlpha = 1;
     }
 
-    // 우주 행성들
+    // Space planets
     if (!isMenu() && altSpace > 0.01) {
       ctx.globalAlpha = altSpace;
       const px = W * 0.2;
@@ -1670,7 +1677,7 @@
       ctx.globalAlpha = 1;
     }
 
-    // 구름
+    // Clouds
     const cloudAlpha = (1 - mixSpace) * (1 - mixSunset * 0.45) * 0.9;
     if (cloudAlpha > 0.01) {
       ctx.globalAlpha = cloudAlpha;
@@ -1692,8 +1699,8 @@
     }
   }
 
-  // ===================== 배경 비행체 =====================
-  // 카메라가 움직이면 탑보다 느리게 따라 움직여 원근감을 줌
+  // ===================== BACKGROUND FLYERS =====================
+  // Moves slower than the tower when camera moves to give parallax effect
   const flyerY = (f) => f.y + (f.cam0 - camY) * f.par;
 
   function spawnFlyers() {
@@ -1771,7 +1778,7 @@
     ctx.stroke();
   }
 
-  // 아래 그리기 함수들은 비행체 크기(f.s)를 1로 둔 좌표계에서 그림
+  // The drawing functions below use a coordinate system where flyer size (f.s) is 1
   function drawBird(f, dusk) {
     ctx.scale(f.dir, 1);
     const flap = Math.sin(f.t * 11);
@@ -1931,7 +1938,7 @@
       beam.addColorStop(1, 'rgba(255,250,170,0)');
       fpoly([[-0.35, 0.15], [0.35, 0.15], [0.9, 2.2], [-0.9, 2.2]], beam);
     }
-    // 돔 안의 외계인
+    // Alien inside the dome
     fline([[-0.1, -0.45], [-0.2, -0.66]], '#5FC45F', 0.04);
     fline([[0.1, -0.45], [0.2, -0.66]], '#5FC45F', 0.04);
     fcircle(-0.2, -0.68, 0.05, '#FFE45C');
@@ -1996,11 +2003,11 @@
     const left = camX - 20;
     const right = camX + W + 20;
 
-    // 하늘색에 맞춰 들판 톤 조정
+    // Adjust field tone based on sky color
     const tint = mixSunset * 0.35 + mixSpace * 0.3;
     const tintColor = `rgba(40,20,90,${tint})`;
 
-    // 뒷산
+    // Background hills
     ctx.beginPath();
     for (const h of hills) {
       const x = W / 2 + h.dx;
@@ -2014,11 +2021,11 @@
       ctx.fill();
     }
 
-    // 들판
+    // Field
     ctx.fillStyle = gradGround;
     ctx.fillRect(left, groundY, right - left, H * 2);
 
-    // 풀과 꽃
+    // Grass and flowers
     ctx.strokeStyle = '#3E9A2E';
     ctx.lineWidth = Math.max(1.5, S * 0.03);
     ctx.lineCap = 'round';
@@ -2113,7 +2120,7 @@
       const x = W / 2 + mover.u * S;
       const y = moverY();
       const surfaceY = baseTopY - S * n;
-      // 떨어질 위치 가이드
+      // Drop position guide
       ctx.save();
       ctx.globalAlpha = 0.35;
       ctx.strokeStyle = '#FFFFFF';
@@ -2186,7 +2193,7 @@
   }
 
   function drawTitle() {
-    // 하늘의 커다란 별
+    // Large star in the sky
     const sx = W / 2;
     const sy = safeTop + H * 0.12;
     const pulse = 1 + Math.sin(time * 2.2) * 0.08;
@@ -2209,13 +2216,13 @@
 
     const titleSize = Math.round(clamp(W * 0.1, 30, 52));
     drawText('Zodiac Tower', W / 2, safeTop + H * 0.24, titleSize, '#FFFFFF', { stroke: 'rgba(60,20,90,0.55)', weight: 900 });
-    drawText('우주 콩콩 동물탑', W / 2, safeTop + H * 0.24 + titleSize * 0.95, Math.round(titleSize * 0.5), '#FFE873', { stroke: 'rgba(60,20,90,0.55)', weight: 800 });
+    drawText('Cosmic Zodiac Tower', W / 2, safeTop + H * 0.24 + titleSize * 0.95, Math.round(titleSize * 0.5), '#FFE873', { stroke: 'rgba(60,20,90,0.55)', weight: 800 });
   }
 
   function drawPrologue() {
     drawTitle();
 
-    // 타이핑 텍스트
+    // Typing text
     const chars = Array.from(PROLOGUE_TEXT);
     const shown = Math.min(chars.length, Math.floor(typeT / 0.12));
     const done = shown >= chars.length;
@@ -2225,7 +2232,7 @@
 
     if (done) {
       ctx.globalAlpha = 0.55 + 0.45 * Math.sin(time * 4);
-      drawText('👆 화면을 톡! 눌러서 시작', W / 2, H * 0.43 + size * 1.8, Math.round(size * 0.72), '#FFFFFF', { stroke: 'rgba(30,10,60,0.5)' });
+      drawText('👆 Tap the screen to start', W / 2, H * 0.43 + size * 1.8, Math.round(size * 0.72), '#FFFFFF', { stroke: 'rgba(30,10,60,0.5)' });
       ctx.globalAlpha = 1;
     }
   }
@@ -2243,7 +2250,7 @@
     const btns = selectButtons();
     const head = Math.round(clamp(W * 0.055, 17, 26));
     ctx.globalAlpha = clamp(selectT * 4, 0, 1);
-    drawText('난이도를 골라 주세요!', W / 2, btns[0].y - head * 1.1, head, '#FFFFFF', { stroke: 'rgba(30,10,60,0.6)', weight: 900 });
+    drawText('Select Difficulty!', W / 2, btns[0].y - head * 1.1, head, '#FFFFFF', { stroke: 'rgba(30,10,60,0.6)', weight: 900 });
     ctx.globalAlpha = 1;
 
     btns.forEach((b, i) => {
@@ -2292,7 +2299,7 @@
       ctx.fillStyle = '#FFFFFF';
       ctx.fill();
       drawText(m.tier, chipX + chipW / 2, chipY + chipH / 2, Math.round(chipH * 0.62), shade(m.color, -0.25), { weight: 900 });
-      drawText(`최고 ${bests[i]}층`, chipX + chipW / 2, b.y + b.h * 0.7, Math.round(b.h * 0.18), '#FFFFFF', { weight: 800, maxWidth: chipW + b.h * 0.1 });
+      drawText(`Best: ${bests[i]}`, chipX + chipW / 2, b.y + b.h * 0.7, Math.round(b.h * 0.18), '#FFFFFF', { weight: 800, maxWidth: chipW + b.h * 0.1 });
       ctx.restore();
     });
   }
@@ -2301,17 +2308,17 @@
     const n = blocks.length;
     const top = safeTop + 12;
     const big = Math.round(clamp(W * 0.11, 34, 56));
-    drawText(`${n}층`, W / 2, top + big * 0.6, big, '#FFFFFF', { stroke: 'rgba(0,0,0,0.35)', weight: 900 });
-    drawText(`${mode().icon} ${mode().tier} · 최고 ${bests[modeIdx]}층`, W / 2, top + big * 1.3, Math.round(big * 0.32), 'rgba(255,255,255,0.92)', { stroke: 'rgba(0,0,0,0.3)' });
+    drawText(`Floor ${n}`, W / 2, top + big * 0.6, big, '#FFFFFF', { stroke: 'rgba(0,0,0,0.35)', weight: 900 });
+    drawText(`${mode().icon} ${mode().tier} · Best: ${bests[modeIdx]}`, W / 2, top + big * 1.3, Math.round(big * 0.32), 'rgba(255,255,255,0.92)', { stroke: 'rgba(0,0,0,0.3)' });
 
-    // 균형 게이지
+    // Balance gauge
     if (n >= 2) {
       const gw = Math.min(W * 0.42, 200);
       const gh = 10;
       const gx = W / 2 - gw / 2 + 18;
       const gy = top + big * 1.75;
       const d = clamp(dangerShown, 0, 1);
-      drawText('균형', gx - 24, gy + gh / 2, 13, '#FFFFFF', { stroke: 'rgba(0,0,0,0.35)', weight: 800 });
+      drawText('Balance', gx - 24, gy + gh / 2, 13, '#FFFFFF', { stroke: 'rgba(0,0,0,0.35)', weight: 800 });
       squirclePath(ctx, gx, gy, gw, gh, gh / 2);
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.fill();
@@ -2325,11 +2332,11 @@
       }
     }
 
-    // 첫 블록 안내
+    // First block guide
     if (n === 0 && mover.active) {
       const y = moverY() - camY - S * 0.95;
       ctx.globalAlpha = 0.65 + 0.35 * Math.sin(time * 4);
-      drawText('화면을 톡! 눌러서 떨어뜨려요', W / 2, y, Math.round(clamp(W * 0.05, 16, 24)), '#FFFFFF', { stroke: 'rgba(20,60,120,0.6)' });
+      drawText('Tap the screen to drop!', W / 2, y, Math.round(clamp(W * 0.05, 16, 24)), '#FFFFFF', { stroke: 'rgba(20,60,120,0.6)' });
       ctx.globalAlpha = 1;
     }
   }
@@ -2370,23 +2377,23 @@
 
     const cx = W / 2;
     const m = mode();
-    drawText('와르르~! 💥', cx, py + unit * 1.2, Math.round(unit * 0.85), '#7A4BC2', { weight: 900 });
+    drawText('Crashed~! 💥', cx, py + unit * 1.2, Math.round(unit * 0.85), '#7A4BC2', { weight: 900 });
     const chipW = pw * 0.56;
     const chipH = unit * 0.75;
     squirclePath(ctx, cx - chipW / 2, py + unit * 2.2 - chipH / 2, chipW, chipH, chipH / 2);
     ctx.fillStyle = m.color;
     ctx.fill();
     drawText(`${m.icon} ${m.name}`, cx, py + unit * 2.2, Math.round(chipH * 0.55), '#FFFFFF', { weight: 900, maxWidth: chipW - 12 });
-    drawText(`${finalScore}층`, cx, py + unit * 4.2, Math.round(unit * 2), '#FF7A59', { weight: 900, stroke: '#FFFFFF', strokeWidth: 6 });
+    drawText(`Floor ${finalScore}`, cx, py + unit * 4.2, Math.round(unit * 2), '#FF7A59', { weight: 900, stroke: '#FFFFFF', strokeWidth: 6 });
     if (newBest && finalScore > 0) {
-      drawText('🎉 새로운 최고 기록!', cx, py + unit * 6, Math.round(unit * 0.7), '#E0559A', { weight: 900 });
+      drawText('🎉 New Best Record!', cx, py + unit * 6, Math.round(unit * 0.7), '#E0559A', { weight: 900 });
     } else {
-      drawText(`최고 기록 ${bests[modeIdx]}층`, cx, py + unit * 6, Math.round(unit * 0.65), '#8A7BA8', { weight: 800 });
+      drawText(`Best Record: ${bests[modeIdx]}`, cx, py + unit * 6, Math.round(unit * 0.65), '#8A7BA8', { weight: 800 });
     }
     if (canRestart()) {
       ctx.save();
       ctx.globalAlpha = a * (0.55 + 0.45 * Math.sin(time * 4));
-      drawText('👆 터치하면 다시 시작!', cx, py + unit * 7.3, Math.round(unit * 0.66), '#5B4B7A', { weight: 800 });
+      drawText('👆 Tap to restart!', cx, py + unit * 7.3, Math.round(unit * 0.66), '#5B4B7A', { weight: 800 });
       ctx.restore();
       squirclePath(ctx, change.x, change.y, change.w, change.h, change.h / 2);
       ctx.fillStyle = '#EDE4FF';
@@ -2394,7 +2401,7 @@
       ctx.lineWidth = 2;
       ctx.strokeStyle = '#B9A6E8';
       ctx.stroke();
-      drawText('🎚️ 난이도 바꾸기', cx, change.y + change.h / 2, Math.round(change.h * 0.45), '#6A4BB5', { weight: 900 });
+      drawText('🎚️ Change Difficulty', cx, change.y + change.h / 2, Math.round(change.h * 0.45), '#6A4BB5', { weight: 900 });
     }
     ctx.restore();
   }
@@ -2431,7 +2438,7 @@
     drawMuteButton();
   }
 
-  // ===================== 입력 =====================
+  // ===================== INPUT =====================
   function onPress(x, y) {
     Sound.unlock();
     const mb = muteButton();
@@ -2445,7 +2452,7 @@
       openSelect();
     } else if (state === STATE.SELECT) {
       if (selectT < 0.3) return;
-      // 키보드(x < 0)는 마지막으로 고른 난이도로 바로 시작
+      // Keyboard (x < 0) starts immediately with the last chosen difficulty
       const idx = x < 0 ? modeIdx : selectButtons().findIndex(inside);
       if (idx >= 0) {
         Sound.click();
@@ -2469,7 +2476,7 @@
     onPress(t.clientX, t.clientY);
   }, { passive: false });
 
-  // touchend는 브라우저가 인정하는 사용자 제스처라 오디오 잠금 해제에 사용
+  // touchend is a recognized user gesture, used to unlock audio
   canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
     Sound.unlock();
@@ -2499,10 +2506,10 @@
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 
-  // ===================== 메인 루프 =====================
+  // ===================== MAIN LOOP =====================
   let last = performance.now();
   function frame(now) {
-    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+    const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
     last = now;
     update(dt);
     render();
