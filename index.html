@@ -22,6 +22,42 @@
 <body>
   <canvas id="game" aria-label="Zodiac Tower 게임 화면"></canvas>
   <div id="safe-probe" aria-hidden="true"></div>
+
+  <button type="button" id="rankOpenBtn" class="ui-fab" aria-label="랭킹 보기">🏆</button>
+
+  <div id="resultOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="sheet">
+      <h2 id="resultTitle">와르르~! 💥</h2>
+      <div id="resultMode" class="mode-chip"></div>
+      <div id="resultScore" class="score">0층</div>
+      <p id="resultBest" class="sub"></p>
+      <label class="field">
+        <span>이름</span>
+        <input id="resultName" type="text" maxlength="10" autocomplete="nickname" enterkeyhint="done" placeholder="이름을 남겨 주세요">
+      </label>
+      <p id="resultMsg" class="msg"></p>
+      <div class="actions">
+        <button type="button" id="resultSave" class="btn primary">기록 남기기</button>
+        <button type="button" id="resultRank" class="btn">🏆 전체 랭킹</button>
+        <button type="button" id="resultRetry" class="btn">다시 하기</button>
+        <button type="button" id="resultModeBtn" class="btn ghost">난이도 바꾸기</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rankOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="sheet rank-sheet">
+      <div class="rank-head">
+        <h2>전체 랭킹</h2>
+        <button type="button" id="rankClose" class="btn icon" aria-label="닫기">✕</button>
+      </div>
+      <div id="rankModes" class="mode-tabs" role="tablist"></div>
+      <p id="rankMine" class="mine"></p>
+      <div id="rankBody" class="rank-list" role="list"></div>
+      <p id="rankNote" class="msg"></p>
+    </div>
+  </div>
+
   <noscript>이 게임을 하려면 JavaScript를 켜 주세요.</noscript>
 </body>
 </html>
