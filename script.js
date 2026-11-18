@@ -19,7 +19,152 @@
   ];
   const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif';
   const UI_FONT = '-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif';
-  const PROLOGUE_TEXT = "What's out there in the stars?";
+
+  // Browser UI language: Korean if any preferred language starts with "ko", otherwise English.
+  const LANG = (() => {
+    const list = (typeof navigator !== 'undefined' && (navigator.languages || [navigator.language || 'en'])) || ['en'];
+    return list.some((l) => String(l || '').toLowerCase().startsWith('ko')) ? 'ko' : 'en';
+  })();
+
+  const I18N = {
+    en: {
+      subtitle: 'Cosmic Zodiac Tower',
+      prologue: "What's out there in the stars?",
+      tapStart: '👆 Tap the screen to start',
+      selectDifficulty: 'Select Difficulty!',
+      globalRanking: '🏆 Global Ranking',
+      floor: 'Floor {n}',
+      best: 'Best: {n}',
+      hudBest: '{icon} {tier} · Best: {n}',
+      balance: 'Balance',
+      tapDrop: 'Tap the screen to drop!',
+      crashed: 'Crashed~! 💥',
+      perfect: 'Perfect!',
+      perfectCombo: 'Perfect! x{n}',
+      good: 'Good!',
+      anon: 'Anon',
+      you: 'You',
+      newDeviceBest: '🎉 New device best!',
+      deviceBestFloor: 'Device best: Floor {n}',
+      submitScore: 'Submit score',
+      saved: 'Saved',
+      saving: 'Saving…',
+      retry: 'Retry',
+      enterNameHint: 'Enter a name to join the global ranking.',
+      firebaseHint: 'Set the Firebase URL to enable global ranking.',
+      floor0Hint: 'Floor 0 is not submitted.',
+      deviceSavedNoUrl: 'Device best saved. (Global ranking URL not set)',
+      submitting: 'Submitting to the global ranking…',
+      submitFail: 'Could not submit. Check your network and try again.',
+      submittedTop: 'Submitted! Roughly top {n}.',
+      submittedRank: 'Submitted! Global rank #{n}.',
+      submittedCheck: 'Submitted! Check the ranking board for your place.',
+      recentCapped: 'Your recent run: {name} · Floor {score} · about top {rank}',
+      recentRank: 'Your recent run: {name} · Floor {score} · Global #{rank}',
+      thisRunCapped: 'This run: {name} · Floor {score} · about top {rank}',
+      thisRunRank: 'This run: {name} · Floor {score} · Global #{rank}',
+      rankUrlHint: 'Set the Firebase URL to enable global ranking. See README → Global ranking.',
+      loading: 'Loading…',
+      loadFail: 'Could not load the global ranking.',
+      noScores: 'No scores yet. Be the first!',
+      topList: '{icon} {name} · Top {n}',
+      mode_easy_tier: 'Novice',
+      mode_easy_name: 'Leisure Stroll',
+      mode_easy_desc: 'Nice and slow. Perfect for beginners!',
+      mode_expert_tier: 'Expert',
+      mode_expert_name: 'Speed Dash',
+      mode_expert_desc: 'Much faster! Show off your skills.',
+      mode_hell_tier: 'Hell',
+      mode_hell_name: 'Inferno',
+      mode_hell_desc: 'Blink and you miss it! For pros only.',
+      html_rankOpen: 'Open ranking',
+      html_name: 'Name',
+      html_namePh: 'Enter a name',
+      html_submit: 'Submit score',
+      html_rank: '🏆 Global ranking',
+      html_retry: 'Play again',
+      html_changeMode: 'Change difficulty',
+      html_rankTitle: 'Global ranking',
+      html_close: 'Close',
+      html_canvas: 'Zodiac Tower game',
+      html_noscript: 'JavaScript is required to play this game.',
+      html_desc: 'A one-button casual game where you stack the 12 Zodiac animals all the way to space',
+    },
+    ko: {
+      subtitle: '우주 콩콩 동물탑',
+      prologue: '저 별에는 무엇이 있을까?',
+      tapStart: '👆 화면을 톡! 눌러서 시작',
+      selectDifficulty: '난이도를 골라 주세요!',
+      globalRanking: '🏆 전체 랭킹',
+      floor: '{n}층',
+      best: '최고 {n}층',
+      hudBest: '{icon} {tier} · 최고 {n}층',
+      balance: '균형',
+      tapDrop: '화면을 톡! 눌러서 떨어뜨려요',
+      crashed: '와르르~! 💥',
+      perfect: 'Perfect!',
+      perfectCombo: 'Perfect! x{n}',
+      good: 'Good!',
+      anon: '무명',
+      you: '나',
+      newDeviceBest: '🎉 이 기기 최고 기록!',
+      deviceBestFloor: '이 기기 최고 {n}층',
+      submitScore: '기록 남기기',
+      saved: '기록 완료',
+      saving: '기록 중…',
+      retry: '다시 시도',
+      enterNameHint: '이름을 남기면 전체 랭킹에 올라가요.',
+      firebaseHint: 'Firebase 주소를 넣으면 전체 랭킹이 켜져요.',
+      floor0Hint: '0층은 랭킹에 올리지 않아요.',
+      deviceSavedNoUrl: '이 기기 최고 기록은 저장됐어요. (전체 랭킹 URL 미설정)',
+      submitting: '전체 랭킹에 올리는 중…',
+      submitFail: '전체 랭킹 전송에 실패했어요. 네트워크를 확인해 주세요.',
+      submittedTop: '올렸어요! 대략 {n}위 안에 있어요.',
+      submittedRank: '올렸어요! 전체 {n}위예요.',
+      submittedCheck: '올렸어요! (내 순위는 잠시 후 랭킹에서 확인해 주세요)',
+      recentCapped: '내 최근 기록: {name} · {score}층 · 약 {rank}위 안',
+      recentRank: '내 최근 기록: {name} · {score}층 · 전체 {rank}위',
+      thisRunCapped: '방금 기록: {name} · {score}층 · 약 {rank}위 안',
+      thisRunRank: '방금 기록: {name} · {score}층 · 전체 {rank}위',
+      rankUrlHint: '전체 랭킹은 Firebase URL을 넣으면 켜져요. README의 Global ranking을 보세요.',
+      loading: '불러오는 중…',
+      loadFail: '전체 랭킹을 불러오지 못했어요.',
+      noScores: '아직 기록이 없어요. 첫 기록을 남겨 보세요!',
+      topList: '{icon} {name} · 상위 {n}명',
+      mode_easy_tier: '초보자',
+      mode_easy_name: '아장아장 산책',
+      mode_easy_desc: '천천히 콩콩, 처음이라면 여기!',
+      mode_expert_tier: '전문가',
+      mode_expert_name: '씽씽 질주',
+      mode_expert_desc: '더 빠르게! 실력을 보여줘',
+      mode_hell_tier: '지옥',
+      mode_hell_name: '불꽃 지옥',
+      mode_hell_desc: '눈 깜짝할 새! 진짜 고수만',
+      html_rankOpen: '랭킹 보기',
+      html_name: '이름',
+      html_namePh: '이름을 남겨 주세요',
+      html_submit: '기록 남기기',
+      html_rank: '🏆 전체 랭킹',
+      html_retry: '다시 하기',
+      html_changeMode: '난이도 바꾸기',
+      html_rankTitle: '전체 랭킹',
+      html_close: '닫기',
+      html_canvas: 'Zodiac Tower 게임 화면',
+      html_noscript: '이 게임을 하려면 JavaScript를 켜 주세요.',
+      html_desc: '12간지 동물을 차곡차곡 쌓아 우주까지 올라가는 원버튼 캐주얼 게임',
+    },
+  };
+
+  const t = (key, vars) => {
+    const table = I18N[LANG] || I18N.en;
+    let s = table[key] ?? I18N.en[key] ?? key;
+    if (vars) {
+      Object.keys(vars).forEach((k) => {
+        s = s.split(`{${k}}`).join(String(vars[k]));
+      });
+    }
+    return s;
+  };
 
   const TAU = Math.PI * 2;
   const BLOCK_RATIO = 1.75;       // Block width/height ratio
@@ -37,18 +182,24 @@
   // sens=wobble sensitivity mult, perfect=perfect tolerance mult, tempo=BGM tempo mult
   const MODES = [
     {
-      id: 'easy', tier: 'Novice', icon: '🐣', name: 'Leisure Stroll', desc: 'Nice and slow. Perfect for beginners!',
+      id: 'easy', icon: '🐣',
       color: '#5DBB63', speed: 1, ramp: 1, cap: 9, sens: 1, perfect: 1, tempo: 1, bestKey: 'zodiacTower.best',
     },
     {
-      id: 'expert', tier: 'Expert', icon: '🐯', name: 'Speed Dash', desc: 'Much faster! Show off your skills.',
+      id: 'expert', icon: '🐯',
       color: '#FF9233', speed: 2, ramp: 1.3, cap: 15, sens: 1.3, perfect: 0.85, tempo: 1.12, bestKey: 'zodiacTower.best.expert',
     },
     {
-      id: 'hell', tier: 'Hell', icon: '🔥', name: 'Inferno', desc: 'Blink and you miss it! For pros only.',
+      id: 'hell', icon: '🔥',
       color: '#E23E57', speed: 3, ramp: 1.6, cap: 22, sens: 1.7, perfect: 0.7, tempo: 1.25, bestKey: 'zodiacTower.best.hell',
     },
   ];
+
+  const modeText = (m) => ({
+    tier: t(`mode_${m.id}_tier`),
+    name: t(`mode_${m.id}_name`),
+    desc: t(`mode_${m.id}_desc`),
+  });
 
   // Firebase Realtime Database URL (README의 "전체 랭킹 설정" 참고). 비어 있으면 전체 랭킹은 비활성.
   const RANK_DB_URL = 'https://zodiac-tower-default-rtdb.europe-west1.firebasedatabase.app';
@@ -65,9 +216,37 @@
   const damp = (rate, dt) => 1 - Math.exp(-rate * dt);
   const $ = (id) => document.getElementById(id);
   const escHtml = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-  const cleanName = (s) => (String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 10) || 'Anon');
+  const cleanName = (s) => (String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 10) || t('anon'));
   const validRec = (r) => r && typeof r.name === 'string' && Number.isFinite(r.score) && Number.isFinite(r.ts);
   const modeById = (id) => MODES.find((m) => m.id === id) || MODES[0];
+
+  function applyHtmlI18n() {
+    document.documentElement.lang = LANG;
+    const desc = document.querySelector('meta[name="description"]');
+    if (desc) desc.setAttribute('content', t('html_desc'));
+    const canvas = $('game');
+    if (canvas) canvas.setAttribute('aria-label', t('html_canvas'));
+    const fab = $('rankOpenBtn');
+    if (fab) fab.setAttribute('aria-label', t('html_rankOpen'));
+    const nameLabel = document.querySelector('#resultOverlay .field span');
+    if (nameLabel) nameLabel.textContent = t('html_name');
+    const nameInput = $('resultName');
+    if (nameInput) nameInput.placeholder = t('html_namePh');
+    const save = $('resultSave');
+    if (save) save.textContent = t('html_submit');
+    const rank = $('resultRank');
+    if (rank) rank.textContent = t('html_rank');
+    const retry = $('resultRetry');
+    if (retry) retry.textContent = t('html_retry');
+    const change = $('resultModeBtn');
+    if (change) change.textContent = t('html_changeMode');
+    const rankTitle = document.querySelector('#rankOverlay h2');
+    if (rankTitle) rankTitle.textContent = t('html_rankTitle');
+    const close = $('rankClose');
+    if (close) close.setAttribute('aria-label', t('html_close'));
+    const noscript = document.querySelector('noscript');
+    if (noscript) noscript.textContent = t('html_noscript');
+  }
 
   const storage = {
     get(key) {
@@ -1364,7 +1543,7 @@
       Sound.perfect(combo);
       burst(landX, landY + S * 0.4, COLORS[n % 12]);
       floaters.push({
-        text: combo > 1 ? `Perfect! x${combo}` : 'Perfect!',
+        text: combo > 1 ? t('perfectCombo', { n: combo }) : t('perfect'),
         x: landX, y: landY - S * 0.9, vy: -S * 0.8, life: 1.1, max: 1.1,
         size: Math.round(S * 0.42), color: '#FFE45C', stroke: '#C0560A',
       });
@@ -1380,7 +1559,7 @@
       Sound.land();
       if (Math.abs(dx) < GOOD_TOL * BW * mode().perfect) {
         floaters.push({
-          text: 'Good!', x: landX, y: landY - S * 0.9, vy: -S * 0.6, life: 0.8, max: 0.8,
+          text: t('good'), x: landX, y: landY - S * 0.9, vy: -S * 0.6, life: 0.8, max: 0.8,
           size: Math.round(S * 0.32), color: '#FFFFFF', stroke: 'rgba(0,0,0,0.35)',
         });
       }
@@ -2328,14 +2507,14 @@
 
     const titleSize = Math.round(clamp(W * 0.1, 30, 52));
     drawText('Zodiac Tower', W / 2, safeTop + H * 0.24, titleSize, '#FFFFFF', { stroke: 'rgba(60,20,90,0.55)', weight: 900 });
-    drawText('Cosmic Zodiac Tower', W / 2, safeTop + H * 0.24 + titleSize * 0.95, Math.round(titleSize * 0.5), '#FFE873', { stroke: 'rgba(60,20,90,0.55)', weight: 800 });
+    drawText(t('subtitle'), W / 2, safeTop + H * 0.24 + titleSize * 0.95, Math.round(titleSize * 0.5), '#FFE873', { stroke: 'rgba(60,20,90,0.55)', weight: 800 });
   }
 
   function drawPrologue() {
     drawTitle();
 
     // Typing text
-    const chars = Array.from(PROLOGUE_TEXT);
+    const chars = Array.from(t('prologue'));
     const shown = Math.min(chars.length, Math.floor(typeT / 0.12));
     const done = shown >= chars.length;
     const cursor = !done && Math.floor(time * 3) % 2 === 0 ? '|' : '';
@@ -2344,7 +2523,7 @@
 
     if (done) {
       ctx.globalAlpha = 0.55 + 0.45 * Math.sin(time * 4);
-      drawText('👆 Tap the screen to start', W / 2, H * 0.43 + size * 1.8, Math.round(size * 0.72), '#FFFFFF', { stroke: 'rgba(30,10,60,0.5)' });
+      drawText(t('tapStart'), W / 2, H * 0.43 + size * 1.8, Math.round(size * 0.72), '#FFFFFF', { stroke: 'rgba(30,10,60,0.5)' });
       ctx.globalAlpha = 1;
     }
   }
@@ -2375,14 +2554,15 @@
     const rankBtn = selectRankButton();
     const head = Math.round(clamp(W * 0.055, 17, 26));
     ctx.globalAlpha = clamp(selectT * 4, 0, 1);
-    drawText('Select Difficulty!', W / 2, btns[0].y - head * 1.1, head, '#FFFFFF', { stroke: 'rgba(30,10,60,0.6)', weight: 900 });
+    drawText(t('selectDifficulty'), W / 2, btns[0].y - head * 1.1, head, '#FFFFFF', { stroke: 'rgba(30,10,60,0.6)', weight: 900 });
     ctx.globalAlpha = 1;
 
     btns.forEach((b, i) => {
       const m = MODES[i];
-      const t = clamp((selectT - i * 0.08) / 0.35, 0, 1);
-      if (t <= 0) return;
-      const e = easeInOutCubic(t);
+      const mt = modeText(m);
+      const appear = clamp((selectT - i * 0.08) / 0.35, 0, 1);
+      if (appear <= 0) return;
+      const e = easeInOutCubic(appear);
       const r = b.h * 0.32;
       ctx.save();
       ctx.globalAlpha = e;
@@ -2416,15 +2596,15 @@
       const chipH = b.h * 0.3;
       const chipX = b.x + b.w - pad * 0.7 - chipW;
       const textMax = chipX - tx - b.h * 0.12;
-      drawText(m.name, tx, b.y + b.h * 0.36, Math.round(b.h * 0.3), '#FFFFFF', { align: 'left', weight: 900, stroke: shade(m.color, -0.35), strokeWidth: 4, maxWidth: textMax });
-      drawText(m.desc, tx, b.y + b.h * 0.7, Math.round(b.h * 0.18), 'rgba(255,255,255,0.95)', { align: 'left', weight: 700, maxWidth: textMax });
+      drawText(mt.name, tx, b.y + b.h * 0.36, Math.round(b.h * 0.3), '#FFFFFF', { align: 'left', weight: 900, stroke: shade(m.color, -0.35), strokeWidth: 4, maxWidth: textMax });
+      drawText(mt.desc, tx, b.y + b.h * 0.7, Math.round(b.h * 0.18), 'rgba(255,255,255,0.95)', { align: 'left', weight: 700, maxWidth: textMax });
 
       const chipY = b.y + b.h * 0.14;
       squirclePath(ctx, chipX, chipY, chipW, chipH, chipH / 2);
       ctx.fillStyle = '#FFFFFF';
       ctx.fill();
-      drawText(m.tier, chipX + chipW / 2, chipY + chipH / 2, Math.round(chipH * 0.62), shade(m.color, -0.25), { weight: 900 });
-      drawText(`Best: ${bests[i]}`, chipX + chipW / 2, b.y + b.h * 0.7, Math.round(b.h * 0.18), '#FFFFFF', { weight: 800, maxWidth: chipW + b.h * 0.1 });
+      drawText(mt.tier, chipX + chipW / 2, chipY + chipH / 2, Math.round(chipH * 0.62), shade(m.color, -0.25), { weight: 900 });
+      drawText(t('best', { n: bests[i] }), chipX + chipW / 2, b.y + b.h * 0.7, Math.round(b.h * 0.18), '#FFFFFF', { weight: 800, maxWidth: chipW + b.h * 0.1 });
       ctx.restore();
     });
 
@@ -2444,7 +2624,7 @@
       ctx.lineWidth = 2;
       ctx.strokeStyle = '#C9B6F0';
       ctx.stroke();
-      drawText('🏆 Global Ranking', W / 2, rankBtn.y + rankBtn.h / 2, Math.round(rankBtn.h * 0.38), '#6A4BB5', { weight: 900 });
+      drawText(t('globalRanking'), W / 2, rankBtn.y + rankBtn.h / 2, Math.round(rankBtn.h * 0.38), '#6A4BB5', { weight: 900 });
       ctx.restore();
     }
   }
@@ -2453,8 +2633,9 @@
     const n = blocks.length;
     const top = safeTop + 12;
     const big = Math.round(clamp(W * 0.11, 34, 56));
-    drawText(`Floor ${n}`, W / 2, top + big * 0.6, big, '#FFFFFF', { stroke: 'rgba(0,0,0,0.35)', weight: 900 });
-    drawText(`${mode().icon} ${mode().tier} · Best: ${bests[modeIdx]}`, W / 2, top + big * 1.3, Math.round(big * 0.32), 'rgba(255,255,255,0.92)', { stroke: 'rgba(0,0,0,0.3)' });
+    const mt = modeText(mode());
+    drawText(t('floor', { n }), W / 2, top + big * 0.6, big, '#FFFFFF', { stroke: 'rgba(0,0,0,0.35)', weight: 900 });
+    drawText(t('hudBest', { icon: mode().icon, tier: mt.tier, n: bests[modeIdx] }), W / 2, top + big * 1.3, Math.round(big * 0.32), 'rgba(255,255,255,0.92)', { stroke: 'rgba(0,0,0,0.3)' });
 
     // Balance gauge
     if (n >= 2) {
@@ -2463,7 +2644,7 @@
       const gx = W / 2 - gw / 2 + 18;
       const gy = top + big * 1.75;
       const d = clamp(dangerShown, 0, 1);
-      drawText('Balance', gx - 24, gy + gh / 2, 13, '#FFFFFF', { stroke: 'rgba(0,0,0,0.35)', weight: 800 });
+      drawText(t('balance'), gx - 24, gy + gh / 2, 13, '#FFFFFF', { stroke: 'rgba(0,0,0,0.35)', weight: 800 });
       squirclePath(ctx, gx, gy, gw, gh, gh / 2);
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.fill();
@@ -2481,7 +2662,7 @@
     if (n === 0 && mover.active) {
       const y = moverY() - camY - S * 0.95;
       ctx.globalAlpha = 0.65 + 0.35 * Math.sin(time * 4);
-      drawText('Tap the screen to drop!', W / 2, y, Math.round(clamp(W * 0.05, 16, 24)), '#FFFFFF', { stroke: 'rgba(20,60,120,0.6)' });
+      drawText(t('tapDrop'), W / 2, y, Math.round(clamp(W * 0.05, 16, 24)), '#FFFFFF', { stroke: 'rgba(20,60,120,0.6)' });
       ctx.globalAlpha = 1;
     }
   }
@@ -2529,9 +2710,10 @@
 
     const cx = W / 2;
     const m = mode();
-    drawText('Crashed~! 💥', cx, py + unit * 1.2, Math.round(unit * 0.85), '#7A4BC2', { weight: 900 });
-    drawText(`Floor ${finalScore}`, cx, py + unit * 4.2, Math.round(unit * 2), '#FF7A59', { weight: 900, stroke: '#FFFFFF', strokeWidth: 6 });
-    drawText(m.name, cx, py + unit * 6, Math.round(unit * 0.7), '#8A7BA8', { weight: 800 });
+    const mt = modeText(m);
+    drawText(t('crashed'), cx, py + unit * 1.2, Math.round(unit * 0.85), '#7A4BC2', { weight: 900 });
+    drawText(t('floor', { n: finalScore }), cx, py + unit * 4.2, Math.round(unit * 2), '#FF7A59', { weight: 900, stroke: '#FFFFFF', strokeWidth: 6 });
+    drawText(mt.name, cx, py + unit * 6, Math.round(unit * 0.7), '#8A7BA8', { weight: 800 });
     ctx.restore();
   }
 
@@ -2539,20 +2721,21 @@
     resultShown = true;
     uiBusy = true;
     const m = mode();
-    els.resultTitle.textContent = 'Crashed~! 💥';
-    els.resultMode.textContent = `${m.icon} ${m.name}`;
+    const mt = modeText(m);
+    els.resultTitle.textContent = t('crashed');
+    els.resultMode.textContent = `${m.icon} ${mt.name}`;
     els.resultMode.style.background = m.color;
-    els.resultScore.textContent = `Floor ${finalScore}`;
+    els.resultScore.textContent = t('floor', { n: finalScore });
     els.resultBest.textContent = newBest && finalScore > 0
-      ? '🎉 New device best!'
-      : `Device best: Floor ${bests[modeIdx]}`;
+      ? t('newDeviceBest')
+      : t('deviceBestFloor', { n: bests[modeIdx] });
     els.resultName.value = storage.get(NAME_KEY) || '';
     els.resultName.disabled = finalScore <= 0 || resultSaved;
     els.resultSave.disabled = finalScore <= 0 || resultSaved;
-    els.resultSave.textContent = resultSaved ? 'Saved' : 'Submit score';
+    els.resultSave.textContent = resultSaved ? t('saved') : t('submitScore');
     els.resultMsg.textContent = finalScore > 0
-      ? (Rank.enabled() ? 'Enter a name to join the global ranking.' : 'Set the Firebase URL to enable global ranking.')
-      : 'Floor 0 is not submitted.';
+      ? (Rank.enabled() ? t('enterNameHint') : t('firebaseHint'))
+      : t('floor0Hint');
     els.result.classList.remove('hidden');
     els.result.setAttribute('aria-hidden', 'false');
     updateFab();
@@ -2567,19 +2750,19 @@
     resultSaved = true;
     els.resultSave.disabled = true;
     els.resultName.disabled = true;
-    els.resultSave.textContent = 'Saving…';
+    els.resultSave.textContent = t('saving');
 
     if (!Rank.enabled()) {
-      els.resultMsg.textContent = 'Device best saved. (Global ranking URL not set)';
-      els.resultSave.textContent = 'Saved';
+      els.resultMsg.textContent = t('deviceSavedNoUrl');
+      els.resultSave.textContent = t('saved');
       return;
     }
 
-    els.resultMsg.textContent = 'Submitting to the global ranking…';
+    els.resultMsg.textContent = t('submitting');
     const ok = await Rank.push(mode().id, rec);
     if (!ok) {
-      els.resultMsg.textContent = 'Could not submit. Check your network and try again.';
-      els.resultSave.textContent = 'Retry';
+      els.resultMsg.textContent = t('submitFail');
+      els.resultSave.textContent = t('retry');
       els.resultSave.disabled = false;
       els.resultName.disabled = false;
       resultSaved = false;
@@ -2590,12 +2773,12 @@
     if (ranked) {
       Rank.saveLast({ mode: mode().id, name: rec.name, score: rec.score, ts: rec.ts, rank: ranked.rank, capped: ranked.capped });
       els.resultMsg.textContent = ranked.capped
-        ? `Submitted! Roughly top ${ranked.rank}.`
-        : `Submitted! Global rank #${ranked.rank}.`;
+        ? t('submittedTop', { n: ranked.rank })
+        : t('submittedRank', { n: ranked.rank });
     } else {
-      els.resultMsg.textContent = 'Submitted! Check the ranking board for your place.';
+      els.resultMsg.textContent = t('submittedCheck');
     }
-    els.resultSave.textContent = 'Saved';
+    els.resultSave.textContent = t('saved');
   }
 
   async function openRankOverlay(preferredModeId) {
@@ -2628,9 +2811,10 @@
   async function buildRankOverlay() {
     els.rankModes.innerHTML = '';
     MODES.forEach((m) => {
+      const mt = modeText(m);
       const b = document.createElement('button');
       b.type = 'button';
-      b.textContent = `${m.icon} ${m.tier}`;
+      b.textContent = `${m.icon} ${mt.tier}`;
       b.className = m.id === rankModeId ? 'on' : '';
       b.style.background = m.id === rankModeId ? m.color : '';
       b.addEventListener('click', () => {
@@ -2642,40 +2826,42 @@
     });
 
     const m = modeById(rankModeId);
+    const mt = modeText(m);
     const last = Rank.last();
     if (last && last.mode === rankModeId) {
       els.rankMine.textContent = last.capped
-        ? `Your recent run: ${last.name} · Floor ${last.score} · about top ${last.rank}`
-        : `Your recent run: ${last.name} · Floor ${last.score} · Global #${last.rank}`;
+        ? t('recentCapped', { name: last.name, score: last.score, rank: last.rank })
+        : t('recentRank', { name: last.name, score: last.score, rank: last.rank });
       els.rankMine.classList.remove('hidden');
     } else if (resultMyRank && mode().id === rankModeId && resultRecord) {
+      const who = resultRecord.name || t('you');
       els.rankMine.textContent = resultMyRank.capped
-        ? `This run: ${resultRecord.name || 'You'} · Floor ${finalScore} · about top ${resultMyRank.rank}`
-        : `This run: ${resultRecord.name || 'You'} · Floor ${finalScore} · Global #${resultMyRank.rank}`;
+        ? t('thisRunCapped', { name: who, score: finalScore, rank: resultMyRank.rank })
+        : t('thisRunRank', { name: who, score: finalScore, rank: resultMyRank.rank });
       els.rankMine.classList.remove('hidden');
     } else {
       const mi = MODES.findIndex((x) => x.id === rankModeId);
-      els.rankMine.textContent = `Device best: Floor ${bests[mi >= 0 ? mi : 0] || 0}`;
+      els.rankMine.textContent = t('deviceBestFloor', { n: bests[mi >= 0 ? mi : 0] || 0 });
       els.rankMine.classList.remove('hidden');
     }
 
     els.rankBody.innerHTML = '';
     if (!Rank.enabled()) {
-      els.rankNote.textContent = 'Set the Firebase URL to enable global ranking. See README → Global ranking.';
+      els.rankNote.textContent = t('rankUrlHint');
       return;
     }
-    els.rankNote.textContent = 'Loading…';
+    els.rankNote.textContent = t('loading');
     const list = await Rank.top(rankModeId);
     if (rankModeId !== m.id) return;
     if (!list) {
-      els.rankNote.textContent = 'Could not load the global ranking.';
+      els.rankNote.textContent = t('loadFail');
       return;
     }
     if (!list.length) {
-      els.rankNote.textContent = 'No scores yet. Be the first!';
+      els.rankNote.textContent = t('noScores');
       return;
     }
-    els.rankNote.textContent = `${m.icon} ${m.name} · Top ${list.length}`;
+    els.rankNote.textContent = t('topList', { icon: m.icon, name: mt.name, n: list.length });
     const myName = cleanName(storage.get(NAME_KEY) || '');
     const myLast = Rank.last();
     list.forEach((r, i) => {
@@ -2684,7 +2870,7 @@
       const isMe = myLast && myLast.mode === rankModeId && myLast.ts === r.ts && cleanName(r.name) === cleanName(myLast.name);
       const isNameMatch = !isMe && myName && cleanName(r.name) === myName;
       if (isMe || isNameMatch) row.classList.add('me');
-      row.innerHTML = `<span class="pos">${i + 1}</span><span class="nm">${escHtml(cleanName(r.name))}</span><span class="sc">Floor ${Math.round(r.score)}</span>`;
+      row.innerHTML = `<span class="pos">${i + 1}</span><span class="nm">${escHtml(cleanName(r.name))}</span><span class="sc">${escHtml(t('floor', { n: Math.round(r.score) }))}</span>`;
       els.rankBody.appendChild(row);
     });
   }
@@ -2840,6 +3026,7 @@
     requestAnimationFrame(frame);
   }
 
+  applyHtmlI18n();
   resize();
   updateFab();
   requestAnimationFrame(frame);
