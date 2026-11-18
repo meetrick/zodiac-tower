@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Zodiac Tower - 우주 콩콩 동물탑</title>
-  <meta name="description" content="12간지 동물을 차곡차곡 쌓아 우주까지 올라가는 원버튼 캐주얼 게임">
+  <title>Zodiac Tower</title>
+  <meta name="description" content="A one-button casual game where you stack the 12 Zodiac animals all the way to space">
 
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#000000">
@@ -20,8 +20,44 @@
   <script src="script.js" defer></script>
 </head>
 <body>
-  <canvas id="game" aria-label="Zodiac Tower 게임 화면"></canvas>
+  <canvas id="game" aria-label="Zodiac Tower game"></canvas>
   <div id="safe-probe" aria-hidden="true"></div>
-  <noscript>이 게임을 하려면 JavaScript를 켜 주세요.</noscript>
+
+  <button type="button" id="rankOpenBtn" class="ui-fab" aria-label="Open ranking">🏆</button>
+
+  <div id="resultOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="sheet">
+      <h2 id="resultTitle">Crashed~! 💥</h2>
+      <div id="resultMode" class="mode-chip"></div>
+      <div id="resultScore" class="score">Floor 0</div>
+      <p id="resultBest" class="sub"></p>
+      <label class="field">
+        <span>Name</span>
+        <input id="resultName" type="text" maxlength="10" autocomplete="nickname" enterkeyhint="done" placeholder="Enter a name">
+      </label>
+      <p id="resultMsg" class="msg"></p>
+      <div class="actions">
+        <button type="button" id="resultSave" class="btn primary">Submit score</button>
+        <button type="button" id="resultRank" class="btn">🏆 Global ranking</button>
+        <button type="button" id="resultRetry" class="btn">Play again</button>
+        <button type="button" id="resultModeBtn" class="btn ghost">Change difficulty</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rankOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="sheet rank-sheet">
+      <div class="rank-head">
+        <h2>Global ranking</h2>
+        <button type="button" id="rankClose" class="btn icon" aria-label="Close">✕</button>
+      </div>
+      <div id="rankModes" class="mode-tabs" role="tablist"></div>
+      <p id="rankMine" class="mine"></p>
+      <div id="rankBody" class="rank-list" role="list"></div>
+      <p id="rankNote" class="msg"></p>
+    </div>
+  </div>
+
+  <noscript>JavaScript is required to play this game.</noscript>
 </body>
 </html>

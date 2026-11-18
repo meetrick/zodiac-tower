@@ -37,18 +37,24 @@
   // sens=wobble sensitivity mult, perfect=perfect tolerance mult, tempo=BGM tempo mult
   const MODES = [
     {
-      tier: 'Novice', icon: '🐣', name: 'Leisure Stroll', desc: 'Nice and slow. Perfect for beginners!',
+      id: 'easy', tier: 'Novice', icon: '🐣', name: 'Leisure Stroll', desc: 'Nice and slow. Perfect for beginners!',
       color: '#5DBB63', speed: 1, ramp: 1, cap: 9, sens: 1, perfect: 1, tempo: 1, bestKey: 'zodiacTower.best',
     },
     {
-      tier: 'Expert', icon: '🐯', name: 'Speed Dash', desc: 'Much faster! Show off your skills.',
+      id: 'expert', tier: 'Expert', icon: '🐯', name: 'Speed Dash', desc: 'Much faster! Show off your skills.',
       color: '#FF9233', speed: 2, ramp: 1.3, cap: 15, sens: 1.3, perfect: 0.85, tempo: 1.12, bestKey: 'zodiacTower.best.expert',
     },
     {
-      tier: 'Hell', icon: '🔥', name: 'Inferno', desc: 'Blink and you miss it! For pros only.',
+      id: 'hell', tier: 'Hell', icon: '🔥', name: 'Inferno', desc: 'Blink and you miss it! For pros only.',
       color: '#E23E57', speed: 3, ramp: 1.6, cap: 22, sens: 1.7, perfect: 0.7, tempo: 1.25, bestKey: 'zodiacTower.best.hell',
     },
   ];
+
+  // Firebase Realtime Database URL (README의 "전체 랭킹 설정" 참고). 비어 있으면 전체 랭킹은 비활성.
+  const RANK_DB_URL = 'https://zodiac-tower-default-rtdb.europe-west1.firebasedatabase.app';
+  const RANK_SIZE = 20;
+  const NAME_KEY = 'zodiacTower.name';
+  const LAST_RANK_KEY = 'zodiacTower.lastRank';
 
   const STATE = { PROLOGUE: 'PROLOGUE', SELECT: 'SELECT', PLAYING: 'PLAYING', GAMEOVER: 'GAMEOVER' };
 
@@ -57,6 +63,11 @@
   const rand = (a, b) => a + Math.random() * (b - a);
   const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
   const damp = (rate, dt) => 1 - Math.exp(-rate * dt);
+  const $ = (id) => document.getElementById(id);
+  const escHtml = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  const cleanName = (s) => (String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 10) || 'Anon');
+  const validRec = (r) => r && typeof r.name === 'string' && Number.isFinite(r.score) && Number.isFinite(r.ts);
+  const modeById = (id) => MODES.find((m) => m.id === id) || MODES[0];
 
   const storage = {
     get(key) {
@@ -64,6 +75,52 @@
     },
     set(key, value) {
       try { localStorage.setItem(key, value); } catch (e) { /* private mode */ }
+    },
+  };
+
+  // ===================== 전체 랭킹 (Firebase Realtime Database REST) =====================
+  const Rank = {
+    enabled() { return !!RANK_DB_URL; },
+    path(modeId) { return `${RANK_DB_URL}/tower/${modeId}.json`; },
+    async push(modeId, rec) {
+      if (!this.enabled()) return false;
+      try {
+        const res = await fetch(this.path(modeId), { method: 'POST', body: JSON.stringify(rec) });
+        return res.ok;
+      } catch (e) { return false; }
+    },
+    async top(modeId) {
+      if (!this.enabled()) return null;
+      try {
+        const res = await fetch(`${this.path(modeId)}?orderBy=%22score%22&limitToLast=${RANK_SIZE}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return Object.values(data || {}).filter(validRec).sort((a, b) => b.score - a.score || a.ts - b.ts).slice(0, RANK_SIZE);
+      } catch (e) { return null; }
+    },
+    // 내 점수 이상인 기록만 읽어 순위를 계산. 기록이 매우 많으면 상한으로 표시.
+    async rankOf(modeId, score, ts) {
+      if (!this.enabled()) return null;
+      try {
+        const res = await fetch(`${this.path(modeId)}?orderBy=%22score%22&startAt=${encodeURIComponent(score)}`);
+        if (!res.ok) return null;
+        const data = await res.json() || {};
+        const keys = Object.keys(data);
+        if (keys.length > 1000) return { rank: 1000, capped: true };
+        let better = 0;
+        for (const k of keys) {
+          const r = data[k];
+          if (!validRec(r)) continue;
+          if (r.score > score || (r.score === score && r.ts < ts)) better++;
+        }
+        return { rank: better + 1, capped: false };
+      } catch (e) { return null; }
+    },
+    saveLast(info) {
+      storage.set(LAST_RANK_KEY, JSON.stringify(info));
+    },
+    last() {
+      try { return JSON.parse(storage.get(LAST_RANK_KEY) || 'null'); } catch (e) { return null; }
     },
   };
 
@@ -1092,11 +1149,38 @@
   let panelT = 1.5;
   let finalScore = 0;
   let newBest = false;
+  let resultShown = false;
+  let resultSaved = false;
+  let resultRecord = null;
+  let resultMyRank = null;
+  let uiBusy = false; // HTML 오버레이가 입력을 받을 때 캔버스 제스처 무시
+  let rankModeId = 'easy';
   const bests = MODES.map((m) => parseInt(storage.get(m.bestKey), 10) || 0);
   let modeIdx = clamp(parseInt(storage.get(MODE_KEY), 10) || 0, 0, MODES.length - 1);
   let selectT = 0;
   const mode = () => MODES[modeIdx];
   const isMenu = () => state === STATE.PROLOGUE || state === STATE.SELECT;
+
+  const els = {
+    fab: $('rankOpenBtn'),
+    result: $('resultOverlay'),
+    resultTitle: $('resultTitle'),
+    resultMode: $('resultMode'),
+    resultScore: $('resultScore'),
+    resultBest: $('resultBest'),
+    resultName: $('resultName'),
+    resultMsg: $('resultMsg'),
+    resultSave: $('resultSave'),
+    resultRank: $('resultRank'),
+    resultRetry: $('resultRetry'),
+    resultModeBtn: $('resultModeBtn'),
+    rank: $('rankOverlay'),
+    rankClose: $('rankClose'),
+    rankModes: $('rankModes'),
+    rankMine: $('rankMine'),
+    rankBody: $('rankBody'),
+    rankNote: $('rankNote'),
+  };
 
   // ===================== DIFFICULTY =====================
   function moverSpeed(f) { // Block height/sec
@@ -1174,12 +1258,15 @@
       modeIdx = idx;
       storage.set(MODE_KEY, String(idx));
     }
+    hideOverlays();
     resetRun();
     state = STATE.PLAYING;
     Sound.startBgm(0, mode().tempo);
+    updateFab();
   }
 
   function openSelect() {
+    hideOverlays();
     state = STATE.SELECT;
     selectT = 0;
     blocks = [];
@@ -1187,6 +1274,21 @@
     faller = null;
     mover.active = false;
     Sound.stopBgm();
+    updateFab();
+  }
+
+  function hideOverlays() {
+    els.result.classList.add('hidden');
+    els.result.setAttribute('aria-hidden', 'true');
+    els.rank.classList.add('hidden');
+    els.rank.setAttribute('aria-hidden', 'true');
+    uiBusy = false;
+    resultShown = false;
+  }
+
+  function updateFab() {
+    const show = state === STATE.PROLOGUE || state === STATE.SELECT;
+    els.fab.classList.toggle('hidden', !show);
   }
 
   function spawnMover() {
@@ -1340,6 +1442,16 @@
     Sound.crash();
     Sound.scream();
     cheer(1);
+    resultShown = false;
+    resultSaved = false;
+    resultMyRank = null;
+    resultRecord = {
+      name: '',
+      score: finalScore,
+      mode: mode().id,
+      ts: Date.now(),
+    };
+    updateFab();
   }
 
   // ===================== EFFECTS =====================
@@ -2356,8 +2468,15 @@
 
   function drawGameOver() {
     if (goT < panelT) return;
+    if (canRestart() && !resultShown) showResultOverlay();
+    // 결과/랭킹 HTML 오버레이가 떠 있으면 캔버스에는 어두운 배경만 유지
+    if (!els.result.classList.contains('hidden') || !els.rank.classList.contains('hidden')) {
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';
+      ctx.fillRect(0, 0, W, H);
+      return;
+    }
     const a = clamp((goT - panelT) / 0.35, 0, 1);
-    const { pw, ph, px, py, unit, change } = gameOverLayout();
+    const { pw, ph, px, py, unit } = gameOverLayout();
     const s = 0.85 + 0.15 * easeInOutCubic(a);
 
     ctx.save();
@@ -2378,32 +2497,163 @@
     const cx = W / 2;
     const m = mode();
     drawText('Crashed~! 💥', cx, py + unit * 1.2, Math.round(unit * 0.85), '#7A4BC2', { weight: 900 });
-    const chipW = pw * 0.56;
-    const chipH = unit * 0.75;
-    squirclePath(ctx, cx - chipW / 2, py + unit * 2.2 - chipH / 2, chipW, chipH, chipH / 2);
-    ctx.fillStyle = m.color;
-    ctx.fill();
-    drawText(`${m.icon} ${m.name}`, cx, py + unit * 2.2, Math.round(chipH * 0.55), '#FFFFFF', { weight: 900, maxWidth: chipW - 12 });
     drawText(`Floor ${finalScore}`, cx, py + unit * 4.2, Math.round(unit * 2), '#FF7A59', { weight: 900, stroke: '#FFFFFF', strokeWidth: 6 });
-    if (newBest && finalScore > 0) {
-      drawText('🎉 New Best Record!', cx, py + unit * 6, Math.round(unit * 0.7), '#E0559A', { weight: 900 });
-    } else {
-      drawText(`Best Record: ${bests[modeIdx]}`, cx, py + unit * 6, Math.round(unit * 0.65), '#8A7BA8', { weight: 800 });
-    }
-    if (canRestart()) {
-      ctx.save();
-      ctx.globalAlpha = a * (0.55 + 0.45 * Math.sin(time * 4));
-      drawText('👆 Tap to restart!', cx, py + unit * 7.3, Math.round(unit * 0.66), '#5B4B7A', { weight: 800 });
-      ctx.restore();
-      squirclePath(ctx, change.x, change.y, change.w, change.h, change.h / 2);
-      ctx.fillStyle = '#EDE4FF';
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#B9A6E8';
-      ctx.stroke();
-      drawText('🎚️ Change Difficulty', cx, change.y + change.h / 2, Math.round(change.h * 0.45), '#6A4BB5', { weight: 900 });
-    }
+    drawText(m.name, cx, py + unit * 6, Math.round(unit * 0.7), '#8A7BA8', { weight: 800 });
     ctx.restore();
+  }
+
+  function showResultOverlay() {
+    resultShown = true;
+    uiBusy = true;
+    const m = mode();
+    els.resultTitle.textContent = 'Crashed~! 💥';
+    els.resultMode.textContent = `${m.icon} ${m.name}`;
+    els.resultMode.style.background = m.color;
+    els.resultScore.textContent = `Floor ${finalScore}`;
+    els.resultBest.textContent = newBest && finalScore > 0
+      ? '🎉 New device best!'
+      : `Device best: Floor ${bests[modeIdx]}`;
+    els.resultName.value = storage.get(NAME_KEY) || '';
+    els.resultName.disabled = finalScore <= 0 || resultSaved;
+    els.resultSave.disabled = finalScore <= 0 || resultSaved;
+    els.resultSave.textContent = resultSaved ? 'Saved' : 'Submit score';
+    els.resultMsg.textContent = finalScore > 0
+      ? (Rank.enabled() ? 'Enter a name to join the global ranking.' : 'Set the Firebase URL to enable global ranking.')
+      : 'Floor 0 is not submitted.';
+    els.result.classList.remove('hidden');
+    els.result.setAttribute('aria-hidden', 'false');
+    updateFab();
+  }
+
+  async function saveResultRecord() {
+    if (!resultRecord || resultSaved || finalScore <= 0) return;
+    const name = cleanName(els.resultName.value);
+    storage.set(NAME_KEY, name);
+    const rec = { ...resultRecord, name, score: finalScore, mode: mode().id, ts: Date.now() };
+    resultRecord = rec;
+    resultSaved = true;
+    els.resultSave.disabled = true;
+    els.resultName.disabled = true;
+    els.resultSave.textContent = 'Saving…';
+
+    if (!Rank.enabled()) {
+      els.resultMsg.textContent = 'Device best saved. (Global ranking URL not set)';
+      els.resultSave.textContent = 'Saved';
+      return;
+    }
+
+    els.resultMsg.textContent = 'Submitting to the global ranking…';
+    const ok = await Rank.push(mode().id, rec);
+    if (!ok) {
+      els.resultMsg.textContent = 'Could not submit. Check your network and try again.';
+      els.resultSave.textContent = 'Retry';
+      els.resultSave.disabled = false;
+      els.resultName.disabled = false;
+      resultSaved = false;
+      return;
+    }
+    const ranked = await Rank.rankOf(mode().id, rec.score, rec.ts);
+    resultMyRank = ranked;
+    if (ranked) {
+      Rank.saveLast({ mode: mode().id, name: rec.name, score: rec.score, ts: rec.ts, rank: ranked.rank, capped: ranked.capped });
+      els.resultMsg.textContent = ranked.capped
+        ? `Submitted! Roughly top ${ranked.rank}.`
+        : `Submitted! Global rank #${ranked.rank}.`;
+    } else {
+      els.resultMsg.textContent = 'Submitted! Check the ranking board for your place.';
+    }
+    els.resultSave.textContent = 'Saved';
+  }
+
+  async function openRankOverlay(preferredModeId) {
+    Sound.unlock();
+    Sound.click();
+    rankModeId = preferredModeId || mode().id;
+    uiBusy = true;
+    els.rank.classList.remove('hidden');
+    els.rank.setAttribute('aria-hidden', 'false');
+    els.result.classList.add('hidden');
+    els.result.setAttribute('aria-hidden', 'true');
+    updateFab();
+    await buildRankOverlay();
+  }
+
+  function closeRankOverlay() {
+    Sound.click();
+    els.rank.classList.add('hidden');
+    els.rank.setAttribute('aria-hidden', 'true');
+    if (state === STATE.GAMEOVER && resultShown) {
+      els.result.classList.remove('hidden');
+      els.result.setAttribute('aria-hidden', 'false');
+      uiBusy = true;
+    } else {
+      uiBusy = false;
+    }
+    updateFab();
+  }
+
+  async function buildRankOverlay() {
+    els.rankModes.innerHTML = '';
+    MODES.forEach((m) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = `${m.icon} ${m.tier}`;
+      b.className = m.id === rankModeId ? 'on' : '';
+      b.style.background = m.id === rankModeId ? m.color : '';
+      b.addEventListener('click', () => {
+        Sound.click();
+        rankModeId = m.id;
+        buildRankOverlay();
+      });
+      els.rankModes.appendChild(b);
+    });
+
+    const m = modeById(rankModeId);
+    const last = Rank.last();
+    if (last && last.mode === rankModeId) {
+      els.rankMine.textContent = last.capped
+        ? `Your recent run: ${last.name} · Floor ${last.score} · about top ${last.rank}`
+        : `Your recent run: ${last.name} · Floor ${last.score} · Global #${last.rank}`;
+      els.rankMine.classList.remove('hidden');
+    } else if (resultMyRank && mode().id === rankModeId && resultRecord) {
+      els.rankMine.textContent = resultMyRank.capped
+        ? `This run: ${resultRecord.name || 'You'} · Floor ${finalScore} · about top ${resultMyRank.rank}`
+        : `This run: ${resultRecord.name || 'You'} · Floor ${finalScore} · Global #${resultMyRank.rank}`;
+      els.rankMine.classList.remove('hidden');
+    } else {
+      const mi = MODES.findIndex((x) => x.id === rankModeId);
+      els.rankMine.textContent = `Device best: Floor ${bests[mi >= 0 ? mi : 0] || 0}`;
+      els.rankMine.classList.remove('hidden');
+    }
+
+    els.rankBody.innerHTML = '';
+    if (!Rank.enabled()) {
+      els.rankNote.textContent = 'Set the Firebase URL to enable global ranking. See README → Global ranking.';
+      return;
+    }
+    els.rankNote.textContent = 'Loading…';
+    const list = await Rank.top(rankModeId);
+    if (rankModeId !== m.id) return;
+    if (!list) {
+      els.rankNote.textContent = 'Could not load the global ranking.';
+      return;
+    }
+    if (!list.length) {
+      els.rankNote.textContent = 'No scores yet. Be the first!';
+      return;
+    }
+    els.rankNote.textContent = `${m.icon} ${m.name} · Top ${list.length}`;
+    const myName = cleanName(storage.get(NAME_KEY) || '');
+    const myLast = Rank.last();
+    list.forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = 'rank-row' + (i < 3 ? ` top${i + 1}` : '');
+      const isMe = myLast && myLast.mode === rankModeId && myLast.ts === r.ts && cleanName(r.name) === cleanName(myLast.name);
+      const isNameMatch = !isMe && myName && cleanName(r.name) === myName;
+      if (isMe || isNameMatch) row.classList.add('me');
+      row.innerHTML = `<span class="pos">${i + 1}</span><span class="nm">${escHtml(cleanName(r.name))}</span><span class="sc">Floor ${Math.round(r.score)}</span>`;
+      els.rankBody.appendChild(row);
+    });
   }
 
   function render() {
@@ -2441,6 +2691,7 @@
   // ===================== INPUT =====================
   function onPress(x, y) {
     Sound.unlock();
+    if (uiBusy) return;
     const mb = muteButton();
     if (x >= 0 && Math.hypot(x - mb.x, y - mb.y) < mb.r + 10) {
       Sound.toggleMute();
@@ -2460,13 +2711,6 @@
       }
     } else if (state === STATE.PLAYING) {
       drop();
-    } else if (canRestart()) {
-      if (x >= 0 && inside(gameOverLayout().change)) {
-        Sound.click();
-        openSelect();
-      } else {
-        startGame();
-      }
     }
   }
 
@@ -2485,6 +2729,10 @@
   canvas.addEventListener('click', (e) => onPress(e.clientX, e.clientY));
 
   window.addEventListener('keydown', (e) => {
+    if (uiBusy) {
+      if (e.code === 'Escape' && !els.rank.classList.contains('hidden')) closeRankOverlay();
+      return;
+    }
     if (e.code === 'Space' || e.code === 'Enter') {
       e.preventDefault();
       if (!e.repeat) onPress(-1, -1);
@@ -2506,6 +2754,40 @@
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 
+  // ===================== HTML UI EVENTS =====================
+  els.fab.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openRankOverlay(mode().id);
+  });
+  els.resultSave.addEventListener('click', () => {
+    Sound.unlock();
+    Sound.click();
+    saveResultRecord();
+  });
+  els.resultRank.addEventListener('click', () => openRankOverlay(mode().id));
+  els.resultRetry.addEventListener('click', () => {
+    Sound.unlock();
+    Sound.click();
+    startGame();
+  });
+  els.resultModeBtn.addEventListener('click', () => {
+    Sound.unlock();
+    Sound.click();
+    openSelect();
+  });
+  els.rankClose.addEventListener('click', closeRankOverlay);
+  els.resultName.addEventListener('keydown', (e) => {
+    if (e.code === 'Enter') {
+      e.preventDefault();
+      saveResultRecord();
+    }
+  });
+  // Keep overlay touches from leaking through to the canvas
+  [els.result, els.rank].forEach((node) => {
+    node.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+    node.addEventListener('click', (e) => e.stopPropagation());
+  });
+
   // ===================== MAIN LOOP =====================
   let last = performance.now();
   function frame(now) {
@@ -2517,5 +2799,6 @@
   }
 
   resize();
+  updateFab();
   requestAnimationFrame(frame);
 })();

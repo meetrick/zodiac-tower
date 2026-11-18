@@ -1,21 +1,53 @@
 # 🐭 Zodiac Tower 🚀
 
-**▶ 지금 플레이하기: [https://meetrick.github.io/zodiac-tower/](https://meetrick.github.io/zodiac-tower/)**
+**▶ Play now: [https://meetrick.github.io/zodiac-tower/](https://meetrick.github.io/zodiac-tower/)**
 
-12간지 동물(🐭🐮🐯🐰🐲🐍🐴🐑🐵🐔🐶🐷)을 차곡차곡 쌓아 들판에서 노을을 지나 우주의 별까지 올라가는 **원버튼 동물 스태킹 게임**입니다.
-아이들이 스마트폰 세로 화면에서 손가락 하나로 즐길 수 있도록 만들었어요.
+A one-button animal stacking game where you pile up the 12 Zodiac animals (🐭🐮🐯🐰🐲🐍🐴🐑🐵🐔🐶🐷) from the meadow, through the sunset, and into the stars.
+Made for kids to play in portrait mode on a phone with a single tap.
 
-## 놀이 방법
+## How to play
 
-- 좌우로 움직이는 동물 블록을 보고 **화면을 톡!** 누르면 떨어집니다.
-- 아래 블록 한가운데에 맞추면 **Perfect!** 와 함께 흔들리던 탑이 안정돼요.
-- 삐뚤게 쌓을수록 탑이 기우뚱거리고, 너무 기울면 와르르 무너집니다.
-- 1~50층은 들판, 51~120층은 노을, 121층부터는 우주! 높이 올라갈수록 빨라져요.
+- Watch the animal block slide left and right, then **tap the screen** to drop it.
+- Land on the center of the block below for a **Perfect!** — the wobbling tower steadies.
+- Stack off-center and the tower leans. Lean too far and it all comes crashing down.
+- Floors 1–50 are the meadow, 51–120 are sunset, and 121+ are space. The higher you go, the faster it gets.
 
+## Difficulty modes
 
-## 로컬 실행
+- **🐣 Toddling Stroll** — Beginner pace
+- **🐯 Zooming Dash** — Faster blocks, tighter Perfects
+- **🔥 Fire Hell** — Maximum speed
+
+## Global ranking (Firebase Realtime Database)
+
+Each difficulty has its own global leaderboard. After a run you can submit a name, see your rank, and open the top 20 board from the 🏆 button.
+
+### Setup
+
+1. Open the [Firebase Console](https://console.firebase.google.com/), create a project, then **Build → Realtime Database → Create database**. Asia (Singapore) is a good region. Any starting mode is fine.
+2. Copy the database URL (example: `https://PROJECT-ID-default-rtdb.asia-southeast1.firebasedatabase.app`).
+3. Open the **Rules** tab, paste the contents of `database.rules.json`, and publish.
+4. Put that URL into `script.js`:
+
+```js
+const RANK_DB_URL = 'https://PROJECT-ID-default-rtdb.asia-southeast1.firebasedatabase.app';
+```
+
+Rules summary:
+
+- Anyone can **read** scores under `/tower/{easy|expert|hell}`.
+- Anyone can **add** a new score (`POST`), but cannot edit or delete existing ones.
+- Only `easy` / `expert` / `hell` mode paths are allowed.
+- Each record must include `name` (1–10 chars), `score` (0–100000), `mode` (must match the path), and `ts`.
+- Scores are indexed by `score` for top-N queries.
+
+This is the same client-side submit pattern as Stick Brawl: convenient for friends and family, but determined players can still post fake scores because there is no auth server.
+
+Name search is intentionally **not** included. Realtime Database has no substring search, so a real search would mean downloading large chunks of data or adding Cloud Functions / an external search index. For this game, top 20 + “my rank” after submit is enough.
+
+## Local run
 
 ```bash
 python3 -m http.server 8000
-# http://localhost:8000 접속
+# open http://localhost:8000
 ```

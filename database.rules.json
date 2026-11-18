@@ -1,0 +1,14 @@
+{
+  "rules": {
+    "tower": {
+      "$mode": {
+        ".read": true,
+        ".indexOn": ["score"],
+        "$id": {
+          ".write": "!data.exists() && ($mode === 'easy' || $mode === 'expert' || $mode === 'hell')",
+          ".validate": "newData.hasChildren(['name','score','mode','ts']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 10 && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 100000 && newData.child('mode').isString() && newData.child('mode').val() === $mode && newData.child('ts').isNumber()"
+        }
+      }
+    }
+  }
+}
