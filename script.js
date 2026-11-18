@@ -20,10 +20,19 @@
   const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Segoe UI Symbol",sans-serif';
   const UI_FONT = '-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif';
 
-  // Browser UI language: Korean if any preferred language starts with "ko", otherwise English.
-  const LANG = (() => {
+  // Browser default: Korean if any preferred language starts with "ko", otherwise English.
+  // Manual override is stored in localStorage (LANG_KEY) and can be toggled in-game.
+  const LANG_KEY = 'zodiacTower.lang';
+  const browserLang = () => {
     const list = (typeof navigator !== 'undefined' && (navigator.languages || [navigator.language || 'en'])) || ['en'];
     return list.some((l) => String(l || '').toLowerCase().startsWith('ko')) ? 'ko' : 'en';
+  };
+  let LANG = (() => {
+    try {
+      const saved = localStorage.getItem(LANG_KEY);
+      if (saved === 'ko' || saved === 'en') return saved;
+    } catch (e) { /* ignore */ }
+    return browserLang();
   })();
 
   const I18N = {
@@ -91,7 +100,7 @@
       html_desc: 'A one-button casual game where you stack the 12 Zodiac animals all the way to space',
     },
     ko: {
-      subtitle: '우주 콩콩 동물탑',
+      subtitle: '십이지 타워',
       prologue: '저 별에는 무엇이 있을까?',
       tapStart: '👆 화면을 톡! 눌러서 시작',
       selectDifficulty: '난이도를 골라 주세요!',
@@ -151,7 +160,7 @@
       html_close: '닫기',
       html_canvas: 'Zodiac Tower 게임 화면',
       html_noscript: '이 게임을 하려면 JavaScript를 켜 주세요.',
-      html_desc: '12간지 동물을 차곡차곡 쌓아 우주까지 올라가는 원버튼 캐주얼 게임',
+      html_desc: '십이지 동물을 차곡차곡 쌓아 우주까지 올라가는 원버튼 캐주얼 게임',
     },
   };
 
@@ -219,6 +228,14 @@
   const cleanName = (s) => (String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 10) || t('anon'));
   const validRec = (r) => r && typeof r.name === 'string' && Number.isFinite(r.score) && Number.isFinite(r.ts);
   const modeById = (id) => MODES.find((m) => m.id === id) || MODES[0];
+
+  function toggleLang() {
+    LANG = LANG === 'ko' ? 'en' : 'ko';
+    storage.set(LANG_KEY, LANG);
+    applyHtmlI18n();
+    if (resultShown && !els.result.classList.contains('hidden')) showResultOverlay();
+    if (!els.rank.classList.contains('hidden')) buildRankOverlay();
+  }
 
   function applyHtmlI18n() {
     document.documentElement.lang = LANG;
@@ -2470,17 +2487,34 @@
     return { x: W - r - 14, y: safeTop + r + 12, r };
   }
 
-  function drawMuteButton() {
-    const b = muteButton();
+  function langButton() {
+    const mb = muteButton();
+    return { x: mb.x - mb.r * 2 - 10, y: mb.y, r: mb.r };
+  }
+
+  function drawRoundButton(b, label, emoji) {
     ctx.fillStyle = 'rgba(0,0,0,0.28)';
     ctx.beginPath();
     ctx.arc(b.x, b.y, b.r, 0, TAU);
     ctx.fill();
-    ctx.font = `${Math.round(b.r * 1.0)}px ${EMOJI_FONT}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(Sound.muted ? '🔇' : '🔊', b.x, b.y + 1);
+    if (emoji) {
+      ctx.font = `${Math.round(b.r)}px ${EMOJI_FONT}`;
+      ctx.fillText(label, b.x, b.y + 1);
+    } else {
+      ctx.font = `800 ${Math.round(b.r * 0.72)}px ${UI_FONT}`;
+      ctx.fillText(label, b.x, b.y + 1);
+    }
+  }
+
+  function drawMuteButton() {
+    drawRoundButton(muteButton(), Sound.muted ? '🔇' : '🔊', true);
+  }
+
+  function drawLangButton() {
+    drawRoundButton(langButton(), LANG === 'ko' ? '한' : 'EN', false);
   }
 
   function drawTitle() {
@@ -2904,18 +2938,27 @@
     else if (state === STATE.SELECT) drawSelect();
     else if (state === STATE.PLAYING) drawHUD();
     else drawGameOver();
+    drawLangButton();
     drawMuteButton();
   }
 
   // ===================== INPUT =====================
   function onPress(x, y) {
     Sound.unlock();
-    if (uiBusy) return;
-    const mb = muteButton();
-    if (x >= 0 && Math.hypot(x - mb.x, y - mb.y) < mb.r + 10) {
-      Sound.toggleMute();
-      return;
+    if (x >= 0) {
+      const mb = muteButton();
+      if (Math.hypot(x - mb.x, y - mb.y) < mb.r + 10) {
+        Sound.toggleMute();
+        return;
+      }
+      const lb = langButton();
+      if (Math.hypot(x - lb.x, y - lb.y) < lb.r + 10) {
+        Sound.click();
+        toggleLang();
+        return;
+      }
     }
+    if (uiBusy) return;
     const inside = (r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
     if (state === STATE.PROLOGUE) {
       Sound.click();

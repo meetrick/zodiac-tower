@@ -51,3 +51,12 @@ Name search is intentionally **not** included. Realtime Database has no substrin
 python3 -m http.server 8000
 # open http://localhost:8000
 ```
+
+## License
+
+Split licensing — see [`LICENSE`](LICENSE):
+
+- **Code & docs** (HTML/CSS/JS, Firebase rules, procedural drawing/sound code): **MIT**
+- **Standalone media** (icons/images/audio files) and **branding** (`Zodiac Tower`, `십이지 타워`): **All Rights Reserved** © 2026 Hwangjae Lee
+
+Forks are welcome under MIT, but please do not present them as the official Zodiac Tower / 십이지 타워 without permission.
