@@ -1287,8 +1287,8 @@
   }
 
   function updateFab() {
-    const show = state === STATE.PROLOGUE || state === STATE.SELECT;
-    els.fab.classList.toggle('hidden', !show);
+    // Ranking is opened from the difficulty select screen, so hide the corner FAB.
+    els.fab.classList.add('hidden');
   }
 
   function spawnMover() {
@@ -2357,9 +2357,22 @@
     return MODES.map((m, i) => ({ x: W / 2 - bw / 2, y: top + i * (bh + gap), w: bw, h: bh }));
   }
 
+  function selectRankButton() {
+    const modes = selectButtons();
+    const last = modes[modes.length - 1];
+    const h = Math.max(44, last.h * 0.78);
+    return {
+      x: last.x,
+      y: Math.min(last.y + last.h + last.h * 0.28, H - h - 18),
+      w: last.w,
+      h,
+    };
+  }
+
   function drawSelect() {
     drawTitle();
     const btns = selectButtons();
+    const rankBtn = selectRankButton();
     const head = Math.round(clamp(W * 0.055, 17, 26));
     ctx.globalAlpha = clamp(selectT * 4, 0, 1);
     drawText('Select Difficulty!', W / 2, btns[0].y - head * 1.1, head, '#FFFFFF', { stroke: 'rgba(30,10,60,0.6)', weight: 900 });
@@ -2414,6 +2427,26 @@
       drawText(`Best: ${bests[i]}`, chipX + chipW / 2, b.y + b.h * 0.7, Math.round(b.h * 0.18), '#FFFFFF', { weight: 800, maxWidth: chipW + b.h * 0.1 });
       ctx.restore();
     });
+
+    // Ranking tab under the difficulty list
+    const rt = clamp((selectT - 0.24) / 0.35, 0, 1);
+    if (rt > 0) {
+      const e = easeInOutCubic(rt);
+      const r = rankBtn.h * 0.36;
+      ctx.save();
+      ctx.globalAlpha = e;
+      squirclePath(ctx, rankBtn.x, rankBtn.y + 4, rankBtn.w, rankBtn.h, r);
+      ctx.fillStyle = 'rgba(40,20,70,0.45)';
+      ctx.fill();
+      squirclePath(ctx, rankBtn.x, rankBtn.y, rankBtn.w, rankBtn.h, r);
+      ctx.fillStyle = '#FFF8EC';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#C9B6F0';
+      ctx.stroke();
+      drawText('🏆 Global Ranking', W / 2, rankBtn.y + rankBtn.h / 2, Math.round(rankBtn.h * 0.38), '#6A4BB5', { weight: 900 });
+      ctx.restore();
+    }
   }
 
   function drawHUD() {
@@ -2704,7 +2737,16 @@
     } else if (state === STATE.SELECT) {
       if (selectT < 0.3) return;
       // Keyboard (x < 0) starts immediately with the last chosen difficulty
-      const idx = x < 0 ? modeIdx : selectButtons().findIndex(inside);
+      if (x < 0) {
+        Sound.click();
+        startGame(modeIdx);
+        return;
+      }
+      if (inside(selectRankButton())) {
+        openRankOverlay(mode().id);
+        return;
+      }
+      const idx = selectButtons().findIndex(inside);
       if (idx >= 0) {
         Sound.click();
         startGame(idx);
